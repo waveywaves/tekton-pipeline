@@ -1,25 +1,24 @@
 aliases:
   build-pipeline-approvers:
-  - alanfx
   - mgencur
-  - mvinkler
-  - maschmid
   - bbrowning
   - jcrossley3
-  - bobmcwhirter
   - markusthoemmes
   - vdemeester
-  - evanchooly
   - arilivigni
+  - chmouel
+  - sthaha
+
   build-pipeline-reviewers:
-  - alanfx
   - mgencur
-  - mvinkler
-  - maschmid
   - bbrowning
   - jcrossley3
-  - bobmcwhirter
   - markusthoemmes
   - vdemeester
-  - evanchooly
   - arilivigni
+  - chmouel
+  - sthaha
+  - nikhil-thomas
+  - hrishin
+  - piyush-garg
+  - pradeepitm12
