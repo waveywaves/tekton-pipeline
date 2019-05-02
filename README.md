@@ -85,18 +85,7 @@ this PR is merged, the CI setup for that branch is active.
 
 ### High-level steps for a release
 
-#### Building upstream
-
-1. Create a release branch from the upstream’s release tag, i.e. release-v0.5.0. This is created in the fork that we maintain of upstream. See our branching instructions for deeper information.
-2. Create a CI job for that branch in openshift/release. See our CI setup instructions for deeper information.
-3. Do whatever you need to do to make this CI pass
-4. Create a “dummy” PR with a ci file, which contains the current output of “date”. This is to trigger CI explicitly.
-5. Make sure that PR is green and merge it. This will trigger the images to become available on the CI registry.
-
-#### Mirroring images to quay.io
-
-1. Make sure the images for the release are built and “promoted”. This can be verified by “docker pull”ing them, for example: “docker pull registry.svc.ci.openshift.org/openshift/knative-v0.5.0:knative-eventing-controller”
-2. If that’s the case, create/amend an image mirroring mapping file as described here.
+#### [Building upstream](RELEASE_PROCESS.md)
 
 #### Update the operator
 
@@ -133,4 +122,3 @@ DIR=openshift/olm \
 #### Gather release notes from JIRA/GitHub
 
 #### Send a release announcement 
-
