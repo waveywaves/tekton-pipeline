@@ -25,3 +25,13 @@ generate-dockerfiles:
 UIDWRAPPER_PATH=./openshift/ci-operator/uidwrapper
 installuidwrapper: $(UIDWRAPPER_PATH)
 	install -m755 $(UIDWRAPPER_PATH) $(GOPATH)/bin/
+
+# Generates a ci-operator configuration for a specific branch.
+generate-ci-config:
+	./openshift/ci-operator/generate-ci-config.sh $(BRANCH) > ci-operator-config.yaml
+.PHONY: generate-ci-config
+
+# Generate an aggregated knative yaml file with replaced image references
+generate-release:
+	./openshift/release/generate-release.sh $(RELEASE)
+.PHONY: generate-release
