@@ -16,14 +16,14 @@ git checkout openshift/master openshift OWNERS_ALIASES OWNERS Makefile
 make generate-dockerfiles
 make RELEASE=ci generate-release
 git add openshift OWNERS_ALIASES OWNERS Makefile
-git commit -m "Update openshift specific files."
+git commit -m ":open_file_folder: Update openshift specific files."
 git push -f openshift release-next
 
 # Trigger CI
 git checkout release-next -B release-next-ci
 date > ci
 git add ci
-git commit -m "Triggering CI on branch 'release-next' after synching to upstream/master"
+git commit -m ":robot: Triggering CI on branch 'release-next' after synching to upstream/master"
 git push -f openshift release-next-ci
 
 if hash hub 2>/dev/null; then
