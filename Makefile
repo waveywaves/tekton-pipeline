@@ -5,6 +5,14 @@ GOOS=linux
 CORE_IMAGES=./cmd/bash ./cmd/controller ./cmd/entrypoint ./cmd/gsutil ./cmd/kubeconfigwriter ./cmd/nop ./cmd/webhook ./cmd/imagedigestexporter
 CORE_IMAGES_WITH_GIT=./cmd/creds-init ./cmd/git-init
 
+##
+# You need to provide a RELEASE_VERSION when using targets like `push-image`, you can do it directly
+# on the command like this: `make push-image RELEASE_VERSION=0.4.0`
+RELEASE_VERSION=
+REGISTRY_CI_URL=registry.svc.ci.openshift.org/openshift/tektoncd-v$(RELEASE_VERSION):tektoncd-pipeline
+REGISTRY_RELEASE_URL=quay.io/openshift-pipeline/tektoncd-pipeline
+BINARY_WITHOUT_IMAGE=gsutil # TODO: why those are not in CI ?
+
 # Install core images
 install: installuidwrapper
 	go install $(CORE_IMAGES) $(CORE_IMAGES_WITH_GIT)
@@ -35,3 +43,18 @@ generate-ci-config:
 generate-release:
 	./openshift/release/generate-release.sh $(RELEASE)
 .PHONY: generate-release
+
+push-image:
+	@test $(RELEASE_VERSION) || { echo "You need to set the RELEASE_VERSION on the command line i.e: make RELEASE_VERSION=0.4.0"; exit ;1;}
+	@set -ex; \
+	for image in $(CORE_IMAGES);do \
+		image=`basename $$image` ; \
+		echo "$(BINARY_WITHOUT_IMAGE)"|grep -qw $$image && continue ; \
+		docker pull $(REGISTRY_CI_URL)-$$image ; \
+		docker tag $(REGISTRY_CI_URL)-$$image $(REGISTRY_RELEASE_URL)-$$image:v$(RELEASE_VERSION) ; \
+		docker tag $(REGISTRY_RELEASE_URL)-$$image:v$(RELEASE_VERSION) $(REGISTRY_RELEASE_URL)-$$image:latest; \
+		docker push $(REGISTRY_RELEASE_URL)-$$image:v$(RELEASE_VERSION) ; \
+		docker push $(REGISTRY_RELEASE_URL)-$$image:latest ; \
+	done
+
+.PHONY: push-image
