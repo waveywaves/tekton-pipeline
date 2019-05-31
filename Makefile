@@ -40,7 +40,8 @@ generate-ci-config:
 
 # Generate an aggregated knative yaml file with replaced image references
 generate-release:
-	./openshift/release/generate-release.sh $(RELEASE)
+	@test $(RELEASE_VERSION) || { echo "You need to set the RELEASE_VERSION on the command line i.e: make RELEASE_VERSION=0.4.0"; exit ;1;}
+	@./openshift/release/generate-release.sh v$(RELEASE_VERSION)
 .PHONY: generate-release
 
 push-image:

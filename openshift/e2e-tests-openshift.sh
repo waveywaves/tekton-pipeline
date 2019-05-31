@@ -1,6 +1,7 @@
 #!/bin/sh
 
 source $(dirname $0)/../vendor/github.com/tektoncd/plumbing/scripts/e2e-tests.sh
+source $(dirname $0)/resolve-yamls.sh
 
 set -x
 
@@ -25,31 +26,8 @@ function install_tekton_pipeline() {
 }
 
 function create_pipeline() {
-  resolve_resources config/ tekton-pipeline-resolved.yaml "nothing"
+  resolve_resources config/ tekton-pipeline-resolved.yaml "nothing" $OPENSHIFT_REGISTRY/$OPENSHIFT_BUILD_NAMESPACE/stable
   oc apply -f tekton-pipeline-resolved.yaml
-}
-
-function resolve_resources() {
-  local dir=$1
-  local resolved_file_name=$2
-  local ignores=$3
-  local registry_prefix="$OPENSHIFT_REGISTRY/$OPENSHIFT_BUILD_NAMESPACE/stable"
-  >$resolved_file_name
-  for yaml in $(find $dir -name "*.yaml" | grep -vE $ignores); do
-    echo "---" >>$resolved_file_name
-    #first prefix all test images with "test-", then replace all image names with proper repository and prefix images with "tekton-pipeline"
-    sed -e 's%\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)%\1\2 \3\4test-\5%' $yaml |
-      sed -e 's%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 '"$registry_prefix"'\:tektoncd-pipeline-\4%' |
-      # process these images separately as they're passed as arguments to other containers
-      sed -e 's%github.com/tektoncd/pipeline/cmd/bash%'"$registry_prefix"'\:tektoncd-pipeline-bash%g' |
-      sed -e 's%github.com/tektoncd/pipeline/cmd/creds-init%'"$registry_prefix"'\:tektoncd-pipeline-creds-init%g' |
-      sed -e 's%github.com/tektoncd/pipeline/cmd/entrypoint%'"$registry_prefix"'\:tektoncd-pipeline-entrypoint%g' |
-      sed -e 's%github.com/tektoncd/pipeline/cmd/git-init%'"$registry_prefix"'\:tektoncd-pipeline-git-init%g' |
-      sed -e 's%github.com/tektoncd/pipeline/cmd/kubeconfigwriter%'"$registry_prefix"'\:tektoncd-pipeline-kubeconfigwriter%g' |
-      sed -e 's%github.com/tektoncd/pipeline/cmd/nop%'"$registry_prefix"'\:tektoncd-pipeline-nop%g' \
-        >>$resolved_file_name
-    echo >>$resolved_file_name
-  done
 }
 
 function create_test_namespace() {
@@ -67,7 +45,7 @@ function run_go_e2e_tests() {
 function run_yaml_e2e_tests() {
   header "Running YAML e2e tests"
   oc project $TEST_YAML_NAMESPACE
-  resolve_resources examples/ tests-resolved.yaml $IGNORES
+  resolve_resources examples/ tests-resolved.yaml $IGNORES $OPENSHIFT_REGISTRY/$OPENSHIFT_BUILD_NAMESPACE/stable
   oc apply -f tests-resolved.yaml
 
   # The rest of this function copied from test/e2e-common.sh#run_yaml_tests()
