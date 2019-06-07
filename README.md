@@ -6,13 +6,14 @@ fixes needed only for the OpenShift side of things.
 
 ## List of releases
 
+- [release-v0.4.0](https://github.com/openshift/tektoncd-pipeline/tree/release-v0.4.0)
 - [release-v0.3.1](https://github.com/openshift/tektoncd-pipeline/tree/release-v0.3.1)
 - [release-v0.3.0](https://github.com/openshift/tektoncd-pipeline/tree/release-v0.3.0)
 - [release-v0.2.0](https://github.com/openshift/tektoncd-pipeline/tree/release-v0.2.0)
 
 ## How this repository works ?
 
-The `master` branch holds up-to-date specific [openshift files](./openshift) 
+The `master` branch holds up-to-date specific [openshift files](./openshift)
 that are necessary for CI setups and maintaining it. This includes:
 
 - Scripts to create a new release branch from `upstream`
@@ -32,7 +33,7 @@ For the CI setup, two repositories are of importance:
 - [openshift/release](https://github.com/openshift/release) which
   contains the configuration of CI jobs that are run on this
   repository
-  
+
 All of the following is based on OpenShift’s CI operator
 configs. General understanding of that mechanism is assumed in the
 following documentation.
@@ -121,4 +122,4 @@ DIR=openshift/olm \
 
 #### Gather release notes from JIRA/GitHub
 
-#### Send a release announcement 
+#### Send a release announcement
