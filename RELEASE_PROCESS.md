@@ -21,10 +21,10 @@
   ```
 
 * Create a PR for the new release in the CI configuration repository <https://github.com/openshift/release>.
-  [Look for an example here.](https://github.com/openshift/release/pull/3623). Wait that it gets merged. Make sure you have all the files in there which is two in `ci-operator/config` and one in `ci-operator/job`. Here is a handy script where you just need to change the version manually :
+  [Look for an example here.](https://github.com/openshift/release/pull/3623). Wait that it gets merged. Make sure you have all the files in there which is two in `ci-operator/config` and one in `ci-operator/job`. Here is a handy script where you just need to change the version manually (also base it on latest released version like 0.4.0) :
 
   ```bash
-   % for i in **/*tektoncd*0.3.0*;do sed -e "s/0\\\.3\\\.0/0\\\.4\\\.0/g" -e "s/0.3.0/0.4.0/" $i > ${i/0.3.0/0.4.0};done
+   % for i in $(find . -name '*tektoncd*0.4.0*');do sed -e "s/0\\\.4\\\.0/0\\\.5\\\.2/g" -e "s/0.4.0/0.5.2/" $i > ${i/0.4.0/0.5.2};done
   ```
 
 * Create a PR in <https://github.com/openshift/tektoncd-pipeline> against `openshift/release-v${RELEASE}` for CI to pickup. The base branch for this PR will be against `openshift/tektoncd-pipeline:release-v${VERSION}`. See here for an [example](https://github.com/openshift/tektoncd-pipeline/pull/26).
