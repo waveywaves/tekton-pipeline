@@ -18,9 +18,32 @@ install: installuidwrapper
 .PHONY: install
 
 # Run E2E tests on OpenShift
-test-e2e:
+test-e2e: check-images
 	./openshift/e2e-tests-openshift.sh
 .PHONY: test-e2e
+
+# Make sure we have all images in the makefile variable or that would be a new
+# binary that needs to be added
+check-images:
+	@for cmd in ./cmd/*;do \
+		found="" ;\
+		for image in $(CORE_IMAGES) $(CORE_IMAGES_WITH_GIT);do \
+			if [[ $$image == $$cmd ]];then \
+				found=1 ;\
+			fi \
+		done ;\
+		test -n $$found || { \
+			echo "*ERROR*: Could not find $$cmd in the Makefile variables CORE_IMAGES_WITH_GIT CORE_IMAGES" ;\
+			echo "" ;\
+			echo "If it it's a new binary that was added upstream, then do the following :" ;\
+			echo "- Add the binary to openshift/release like this: https://git.io/fj18c" ;\
+			echo "- Add to the CORE_IMAGES variables in the Makefile" ;\
+			echo "- Generate the dockerfiles by running 'make generate-dockerfiles'" ;\
+			echo "- Commit and PR these to 'openshift/release-next' remote/branch and 'openshift/master'" ;\
+			exit 1 ;\
+		} && exit 0 ;\
+	done
+.PHONY: check-images
 
 # Generate Dockerfiles used by ci-operator. The files need to be committed manually.
 generate-dockerfiles:
@@ -43,17 +66,5 @@ generate-release:
 	@test $(RELEASE_VERSION) || { echo "You need to set the RELEASE_VERSION on the command line i.e: make RELEASE_VERSION=0.4.0"; exit ;1;}
 	@./openshift/release/generate-release.sh v$(RELEASE_VERSION)
 .PHONY: generate-release
-
-push-image:
-	@test $(RELEASE_VERSION) || { echo "You need to set the RELEASE_VERSION on the command line i.e: make RELEASE_VERSION=0.4.0"; exit ;1;}
-	@set -ex; \
-	for image in $(CORE_IMAGES);do \
-		image=`basename $$image` ; \
-		docker pull $(REGISTRY_CI_URL)-$$image ; \
-		docker tag $(REGISTRY_CI_URL)-$$image $(REGISTRY_RELEASE_URL)-$$image:v$(RELEASE_VERSION) ; \
-		docker tag $(REGISTRY_RELEASE_URL)-$$image:v$(RELEASE_VERSION) $(REGISTRY_RELEASE_URL)-$$image:latest; \
-		docker push $(REGISTRY_RELEASE_URL)-$$image:v$(RELEASE_VERSION) ; \
-		docker push $(REGISTRY_RELEASE_URL)-$$image:latest ; \
-	done
 
 .PHONY: push-image
