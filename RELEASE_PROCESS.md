@@ -39,21 +39,9 @@
 
 * Create a branch based on `openshift/release-v${RELEASE}` and run the command :
 
-`make push-image RELEASE_VERSION=v${RELEASE}`
+`make generate-release RELEASE_VERSION=${RELEASE}`
 
 This will generate a file in `openshift/release/tektoncd-pipeline-${RELEASE}.yaml` which you can add and create a PR for it (against the `openshift/tektoncd-pipeline` repository and `release-v${RELEASE}` branch)
-
-### Push generated image for release (to be changed when we have automatic sync)
-
-* You need first a docker token to access `registry.svc.ci.openshift.org`, you first have to go to this [URL](https://api.ci.openshift.org/oauth/token/request) to get a token to login and then you can retrieve the registry token with this command :
-
-```bash
-% oc registry login --to=${HOME}/.docker/config.json
-```
-
-* You need to have access to `quay.io/openshift-pipeline` make sure you have docker login into this repo
-
-* Run `make push-image RELEASE_VERSION=v${RELEASE}` with the right version to pull and push the image.
 
 ### Tagging
 
