@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+TMP=$(mktemp /tmp/.mm.XXXXXX)
+clean() { rm -f ${TMP}; }
+trap clean EXIT
 
 # Take all yamls in $dir and generate a all in one yaml file with resolved registry image/tag
 function resolve_resources() {
@@ -28,7 +31,7 @@ function resolve_resources() {
         # quay.io/openshift-pipeline/tektoncd-pipeline-bash:$image_tag
         sed -e "s%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 ${registry_prefix}-\4:${image_tag}%" $yaml \
             -r -e "s,github.com/tektoncd/pipeline/cmd/${image_regexp},${registry_prefix}-\1:${image_tag},g" \
-            >>$resolved_file_name
+            > ${TMP}
      else
         # This is CI which get built directly to the user registry namespace i.e: $OPENSHIFT_BUILD_NAMESPACE
         # The output would look like this :
@@ -38,8 +41,15 @@ function resolve_resources() {
         sed -e 's%\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)%\1\2 \3\4test-\5%' $yaml \
             -e "s%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 ""$registry_prefix"'\:tektoncd-pipeline-\4%'  \
             -re "s,github.com/tektoncd/pipeline/cmd/${image_regexp},${registry_prefix}:tektoncd-pipeline-\1,g" \
-            >>$resolved_file_name
+            > ${TMP}
     fi
+
+    # Adding the labels: openshift.io/cluster-monitoring on Namespace to add the cluster-monitoring
+    # See: https://docs.openshift.com/container-platform/4.1/logging/efk-logging-deploying.html
+    grep -q "kind: Namespace" ${TMP} && sed -i '/^metadata:/a \ \ labels:\n\ \ \ \ openshift.io/cluster-monitoring:\ \"true\"' ${TMP}
+
+    cat ${TMP} >> $resolved_file_name
+
     echo >>$resolved_file_name
   done
 }
