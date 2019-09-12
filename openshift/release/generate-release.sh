@@ -14,4 +14,3 @@ else
 fi
 
 resolve_resources config/ $output_file noignore $image_prefix $tag
-yq w -d'*' -i $output_file "metadata.labels[openshift.io/cluster-monitoring]" "true"
