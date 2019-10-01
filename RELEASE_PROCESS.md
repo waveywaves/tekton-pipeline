@@ -31,7 +31,7 @@
 
 * You can create a dummy commit in there, the only purpose is to make the CI running and start generating the images.
 
-* If there is a new binary generated for docker images then you will have to add them,  just to add it to the target variable CORE_IMAGES in the Makefile and rerun the makefile target `make generate-dockerfiles`  see [here](https://github.com/openshift/tektoncd-pipeline/pull/37/commits/7eb33c2348eb5c2cbde65e975607e14eb7ccbb23) for an example and an example [here](https://github.com/openshift/release/pull/3916/commits/6289f1b85d0422f2c043541bc3d70f0bab6a1e87) for the `openshift/release` repository so prow will build the image for this new binary.
+* If there is a new binary generated for docker images then make sure you follow the section [New Images](#new-images) of this document
 
 * Make sure CI has picked up in your new PR and if that succedeed it means you have setup things successfully 🎉
 
@@ -42,6 +42,29 @@
 `make generate-release RELEASE_VERSION=${RELEASE}`
 
 This will generate a file in `openshift/release/tektoncd-pipeline-${RELEASE}.yaml` which you can add and create a PR for it (against the `openshift/tektoncd-pipeline` repository and `release-v${RELEASE}` branch)
+
+## New Images
+
+You need to make sure that the new release doesn't have new binary which means new images that needs to be shipped, the Makefile should do [a check](https://github.com/openshift/tektoncd-pipeline/blob/02f43d3ef90435c2679b336a0ac9c08ff1d4dd9a/Makefile#L31) to make sure you have it specified in your Makefile. You have three variables in there :
+
+* `CORE_IMAGE` - the CORE images that are auto generated from [openshift/ci-operator/Dockerfile.in](openshift/ci-operator/Dockerfile.in)
+* `CORE_IMAGE_WITH_GIT` - Images that needs git installed in there generated from [openshift/ci-operator/Dockerfile-git.in](openshift/ci-operator/Dockerfile.in)
+* `CORE_IMAGE_CUSTOM` - Those are not auto generated, it's up to you to put whatever you like/need in there.
+
+When you have add your binary to one of your image you need to add it in the `openshift/release` CI, make a PR that looks like this one :
+
+https://github.com/openshift/release/pull/3916/commits/6289f1b85d0422f2c043541bc3d70f0bab6a1e87
+
+* Add it to the quay mirror image like done here :
+
+https://github.com/openshift/release/blob/master/core-services/image-mirroring/tekton/mapping_tekton_v0_4_quay
+
+* And then go to https://quay.io/organization/openshift-pipeline create a new repo for the new image, i.e: `tektoncd-new-image`, you will have then go to the settings of this new repo and add the bot `openshift-pipelines+dat_bot_tho` in there.
+
+* This robot will be used to setup the quay mirroring, you can see the output of the job mirrorings here:
+
+https://prow.svc.ci.openshift.org/?job=periodic-image-mirroring-tekton*
+
 
 ### Tagging
 
