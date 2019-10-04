@@ -21,7 +21,7 @@
   ```
 
 * Create a PR for the new release in the CI configuration repository <https://github.com/openshift/release>.
-  [Look for an example here.](https://github.com/openshift/release/pull/3623). Wait that it gets merged. Make sure you have all the files in there which is two in `ci-operator/config` and one in `ci-operator/job`. Here is a handy script where you just need to change the version manually (also base it on latest released version like 0.4.0) :
+  [Look for an example here.](https://github.com/openshift/release/pull/3623). Wait that it gets merged. Make sure you have all the files in there which is one in `ci-operator/config` and two in `ci-operator/job`. Here is a handy script where you just need to change the version manually (also base it on latest released version like 0.4.0) :
 
   ```bash
    % for i in $(find . -name '*tektoncd*0.4.0*');do sed -e "s/0\\\.4\\\.0/0\\\.5\\\.2/g" -e "s/0.4.0/0.5.2/" $i > ${i/0.4.0/0.5.2};done
