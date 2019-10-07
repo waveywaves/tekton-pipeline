@@ -65,6 +65,8 @@ https://github.com/openshift/release/blob/master/core-services/image-mirroring/t
 
 https://prow.svc.ci.openshift.org/?job=periodic-image-mirroring-tekton*
 
+**Note:** the periodic image mirroring job will pick up images from new release version only after a new pr (eg: the pr with dummy commit) is merged to the new release branch we created [here](#steps)
+
 
 ### Tagging
 
