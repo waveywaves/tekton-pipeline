@@ -6,6 +6,7 @@ fixes needed only for the OpenShift side of things.
 
 ## List of releases
 
+- [release-v0.7.0](https://github.com/openshift/tektoncd-pipeline/tree/release-v0.7.0)
 - [release-v0.5.2](https://github.com/openshift/tektoncd-pipeline/tree/release-v0.5.2)
 - [release-v0.4.0](https://github.com/openshift/tektoncd-pipeline/tree/release-v0.4.0)
 - [release-v0.3.1](https://github.com/openshift/tektoncd-pipeline/tree/release-v0.3.1)
