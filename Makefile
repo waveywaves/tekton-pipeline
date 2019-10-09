@@ -50,10 +50,10 @@ check-images:
 
 # Generate Dockerfiles used by ci-operator. The files need to be committed manually.
 generate-dockerfiles:
-	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/Dockerfile.in openshift/ci-operator/knative-images $(CORE_IMAGES)
-	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/Dockerfile.in openshift/ci-operator/knative-images $(ADDN_IMAGES)
-	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/Dockerfile-git.in openshift/ci-operator/knative-images $(CORE_IMAGES_WITH_GIT)
-	@echo "There is some custom images that are only updated manually in:"; \
+	@./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/Dockerfile.in openshift/ci-operator/knative-images $(CORE_IMAGES)
+	@./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/Dockerfile.in openshift/ci-operator/knative-images $(ADDN_IMAGES)
+	@./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/Dockerfile-git.in openshift/ci-operator/knative-images $(CORE_IMAGES_WITH_GIT)
+	@echo "INFO: There is some custom images that are only updated manually in:"; \
 	echo "	$(CORE_IMAGES_CUSTOMED)";
 .PHONY: generate-dockerfiles
 
