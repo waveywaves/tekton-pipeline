@@ -44,6 +44,7 @@ check-images:
 		echo "- Add to the CORE_IMAGES variables in the Makefile" ;\
 		echo "- Generate the dockerfiles by running 'make generate-dockerfiles'" ;\
 		echo "- Commit and PR these to 'openshift/release-next' remote/branch and 'openshift/master'" ;\
+		echo "- Make sure the images are added in the nightly quay jobs https://git.io/Jeu1I"
 		exit 1 ;\
 	}
 .PHONY: check-images
@@ -69,7 +70,7 @@ generate-ci-config:
 
 # Generate an aggregated knative yaml file with replaced image references
 generate-release:
-	@test $(RELEASE_VERSION) || { echo "You need to set the RELEASE_VERSION on the command line i.e: make RELEASE_VERSION=0.4.0"; exit ;1;}
+	@test $(RELEASE_VERSION) || { echo "You need to set the RELEASE_VERSION on the command line i.e: make RELEASE_VERSION=0.4.0"; exit 1;}
 	@./openshift/release/generate-release.sh v$(RELEASE_VERSION)
 .PHONY: generate-release
 
