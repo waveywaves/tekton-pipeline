@@ -5,6 +5,8 @@
 
 set -e
 REPO_NAME=`basename $(git rev-parse --show-toplevel)`
+[[ ${REPO_NAME} != tektoncd-* ]] && REPO_NAME=tektoncd-${REPO_NAME}
+TODAY=`date "+%Y%m%d"`
 
 # Reset release-next to upstream/master.
 git fetch upstream master
@@ -12,18 +14,23 @@ git checkout upstream/master -B release-next
 
 # Update openshift's master and take all needed files from there.
 git fetch openshift master
-git checkout openshift/master openshift OWNERS_ALIASES OWNERS Makefile
+git checkout openshift/master openshift Makefile OWNERS_ALIASES OWNERS
 make generate-dockerfiles
-make RELEASE=ci generate-release
+
 git add openshift OWNERS_ALIASES OWNERS Makefile
 git commit -m ":open_file_folder: Update openshift specific files."
+
 git push -f openshift release-next
 
 # Trigger CI
 git checkout release-next -B release-next-ci
+
+./openshift/release/generate-release.sh nightly
+
 date > ci
-git add ci
+git add ci openshift/release/tektoncd-pipeline-nightly.yaml
 git commit -m ":robot: Triggering CI on branch 'release-next' after synching to upstream/master"
+
 git push -f openshift release-next-ci
 
 if hash hub 2>/dev/null; then
