@@ -10,7 +10,7 @@ TODAY=`date "+%Y%m%d"`
 
 # Reset release-next to upstream/master.
 git fetch upstream master
-git checkout upstream/master -B release-next
+git checkout upstream/master --no-track -B release-next
 
 # Update openshift's master and take all needed files from there.
 git fetch openshift master
