@@ -45,8 +45,22 @@ check-images:
 		echo "- Generate the dockerfiles by running 'make generate-dockerfiles'" ;\
 		echo "- Commit and PR these to 'openshift/release-next' remote/branch and 'openshift/master'" ;\
 		echo "- Make sure the images are added in the nightly quay jobs https://git.io/Jeu1I" ;\
+		echo "" ;\
 		exit 1 ;\
 	}
+	@notfound="" ;\
+	for cmd in $(ALL_IMAGES);do \
+		[[ -d $$cmd ]] || { \
+			echo "*ERROR*: $$cmd seems to have been removed from upstream" ;\
+			echo "" ;\
+			echo "- Remove the image name in one of the Makefile variable" ;\
+			echo "- Remove the image from the openshfit/release nightly https://git.io/Jez1j and variant https://git.io/JezMv" ;\
+			echo "- Remove the directory from openshift/ci-operator/knative-images/" ;\
+			echo "- Remove the image from the nightly quay job: https://git.io/Jeu1I" ;\
+			echo "" ;\
+			exit 1 ;\
+		} ;\
+	done
 .PHONY: check-images
 
 # Generate Dockerfiles used by ci-operator. The files need to be committed manually.
