@@ -14,7 +14,7 @@ function resolve_resources() {
   # This would get only one set of truth from the Makefile for the image lists
   #
   # % grep "^CORE_IMAGES" Makefile
-  # CORE_IMAGES=./cmd/controller ./cmd/entrypoint ./cmd/gsutil ./cmd/kubeconfigwriter ./cmd/nop ./cmd/webhook ./cmd/imagedigestexporter
+  # CORE_IMAGES=./cmd/controller ./cmd/entrypoint ./cmd/kubeconfigwriter ./cmd/nop ./cmd/webhook ./cmd/imagedigestexporter
   # CORE_IMAGES_WITH_GIT=./cmd/creds-init ./cmd/git-init
   # to:
   #  % grep '^CORE_IMAGES' Makefile|sed -e 's/.*=//' -e 's,./cmd/,,g'|tr -d '\n'|sed -e 's/ /|/g' -e 's/^/(/' -e 's/$/)\n/'
