@@ -14,11 +14,11 @@ function resolve_resources() {
   # This would get only one set of truth from the Makefile for the image lists
   #
   # % grep "^CORE_IMAGES" Makefile
-  # CORE_IMAGES=./cmd/controller ./cmd/entrypoint ./cmd/kubeconfigwriter ./cmd/webhook ./cmd/imagedigestexporter
+  # CORE_IMAGES=./cmd/controller ./cmd/entrypoint ./cmd/kubeconfigwriter ./cmd/nop ./cmd/webhook ./cmd/imagedigestexporter
   # CORE_IMAGES_WITH_GIT=./cmd/creds-init ./cmd/git-init
   # to:
   #  % grep '^CORE_IMAGES' Makefile|sed -e 's/.*=//' -e 's,./cmd/,,g'|tr -d '\n'|sed -e 's/ /|/g' -e 's/^/(/' -e 's/$/)\n/'
-  # (controller|entrypoint|gsutil|kubeconfigwriter|webhook|imagedigestexportercreds-init|git-init)
+  # (controller|entrypoint|gsutil|kubeconfigwriter|nop|webhook|imagedigestexportercreds-init|git-init)
   local image_regexp=$(grep '^CORE_IMAGES' $(git rev-parse --show-toplevel)/Makefile| \
                            sed -e 's/.*=//' -e 's,./cmd/,,g'|tr '\n' ' '| \
                            sed -e 's/ /|/g' -e 's/^/(/' -e 's/|$/)\n/')
@@ -29,7 +29,10 @@ function resolve_resources() {
     if [[ -n ${image_tag} ]];then
         # This is a release format the output would look like this :
         # quay.io/openshift-pipeline/tektoncd-pipeline-bash:$image_tag
-        sed -e "s%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 ${registry_prefix}-\4:${image_tag}%" $yaml \
+        #
+        # NOTE(chmou): trinaon/true is handled differently here, since we
+        # don't use external images but stuff we build ourselves.
+        sed -e "s%trianon/true%${registry_prefix}-nop:${image_tag}%" -e "s%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 ${registry_prefix}-\4:${image_tag}%" $yaml \
             -r -e "s,github.com/tektoncd/pipeline/cmd/${image_regexp},${registry_prefix}-\1:${image_tag},g" \
             > ${TMP}
      else
@@ -38,7 +41,11 @@ function resolve_resources() {
         # internal-registry:5000/usernamespace:tektoncd-pipeline-bash
         #
         # note: test image are images only used for testing not for releases
-        sed -e 's%\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)%\1\2 \3\4test-\5%' $yaml \
+        #
+        # NOTE(chmou): trinaon/true is handled differently here, since we
+        # don't use external images but stuff we build ourselves.
+         sed -e "s%trinaon/true%${registry_prefix}:tektoncd-pipeline-nop%" -e \
+             's%\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)%\1\2 \3\4test-\5%' $yaml \
             -e "s%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 ""$registry_prefix"'\:tektoncd-pipeline-\4%'  \
             -re "s,github.com/tektoncd/pipeline/cmd/${image_regexp},${registry_prefix}:tektoncd-pipeline-\1,g" \
             > ${TMP}
