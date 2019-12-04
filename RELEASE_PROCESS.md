@@ -1,3 +1,4 @@
+
 # How to release an OpenShift downstream release
 
 ## Prereq
@@ -21,27 +22,65 @@
   ```
 
 * Create a PR for the new release in the CI configuration repository <https://github.com/openshift/release>.
-  [Look for an example here.](https://github.com/openshift/release/pull/3623). Wait that it gets merged. Make sure you have all the files in there which is one in `ci-operator/config` and two in `ci-operator/job`. Here is a handy script where you just need to change the version manually (also base it on latest released version like 0.4.0) :
+  [Look for an example here.](https://github.com/openshift/release/pull/3623). Wait that it gets merged. Make sure you have all the files in there which is one in `ci-operator/config` and two in `ci-operator/job`. Here is a handy script that would take care of almost everything (you need to double check that there is no `release-next` lingering in the files) :
 
   ```bash
-   % for i in $(find . -name '*tektoncd*0.4.0*');do sed -e "s/0\\\.4\\\.0/0\\\.5\\\.2/g" -e "s/0.4.0/0.5.2/" $i > ${i/0.4.0/0.5.2};done
+   for i in $(find .|grep '.*tektoncd-pipeline-release-next.*');do RV=$(echo ${RELEASE}|sed 's/\./\\\\./g');sed -e "s/\^release-next/^release-v${RV}/" -e "s/release-next/release-v${RELEASE}/" -e "s/tektoncd-next/tektoncd-v${RELEASE}/" $i > $(echo $i| sed "s/release-next/release-v${RELEASE}/");done
+   sed -e "s/nightly/v${RELEASE}/" -e "s/tektoncd-next/tektoncd-v${RELEASE}/g" core-services/image-mirroring/tekton/mapping_tekton_nihghtly_quay > core-services/image-mirroring/tekton/mapping_tekton_v$(echo ${RELEASE}|sed 's/\.[0-9]*$/_quay/;s/\./_/g')
   ```
 
-* Create a PR in <https://github.com/openshift/tektoncd-pipeline> against `openshift/release-v${RELEASE}` for CI to pickup. The base branch for this PR will be against `openshift/tektoncd-pipeline:release-v${VERSION}`. See here for an [example](https://github.com/openshift/tektoncd-pipeline/pull/26).
+* Get someone to merge the PR before you go to the next step,
 
-* You can create a dummy commit in there, the only purpose is to make the CI running and start generating the images.
+* Create a PR in <https://github.com/openshift/tektoncd-pipeline> against `openshift/release-v${RELEASE}` for CI to pickup. The base branch for this PR will be against `openshift/tektoncd-pipeline:release-v${RELEASE}`. See here for an [example](https://github.com/openshift/tektoncd-pipeline/pull/26). You can run this script to automate all of it :
 
-* If there is a new binary generated for docker images then make sure you follow the section [New Images](#new-images) of this document
+    ```bash
+    USER_REMOTE="youruseremote"
+    git checkout -b test-release-v${RELEASE} release-v${RELEASE}
+    echo "$(date)" > ci
+    git add ci;git commit -m "CITest: v${RELEASE}"
+    git push ${USER_REMOTE} test-release-v${RELEASE}
+    echo "https://github.com/openshift/tektoncd-pipeline/compare/release-v${RELEASE}...${USER_REMOTE}:test-release-v${RELEASE}?expand=1"
+    ```
 
-* Make sure CI has picked up in your new PR and if that succedeed it means you have setup things successfully 🎉
+* After the CI tests passed, it will have the images generated and you can `/close/` the CITEST PR  🎉
 
 ### Generate release.yaml
 
 * Create a branch based on `openshift/release-v${RELEASE}` and run the command :
 
-`make generate-release RELEASE_VERSION=${RELEASE}`
+```bash
+    USER_REMOTE="youruseremote"
+    git checkout -b release-yaml-v${RELEASE} release-v${RELEASE}
+    make generate-release RELEASE_VERSION=${RELEASE}
+    git add openshift/release/tektoncd-pipeline-v${RELEASE}.yaml
+    git commit -m "Releasing release.yaml v${RELEASE}"
+    git push ${USER_REMOTE} release-yaml-v${RELEASE}
+    echo "https://github.com/openshift/tektoncd-pipeline/compare/release-v${RELEASE}...${USER_REMOTE}:release-yaml-v${RELEASE}?expand=1"
+```
 
-This will generate a file in `openshift/release/tektoncd-pipeline-${RELEASE}.yaml` which you can add and create a PR for it (against the `openshift/tektoncd-pipeline` repository and `release-v${RELEASE}` branch)
+* This will generate a file in
+  `openshift/release/tektoncd-pipeline-${RELEASE}.yaml` commit and push it to
+  your git's USER_REMOTE and then you should have link to make your PR against it.
+
+* When you get it merged then you are good to go!
+
+### Other components
+
+### CLI
+
+* You need to make sure the upstream CLI dependency is updated to the new version.
+
+### Catalog
+
+* Catalog needs to be tagged to the new version in downstream :
+
+    https://github.com/openshift/tektoncd-catalog
+
+    # TODO: To be filed by Vincent,
+
+* Images shipped with catalog needs to be tagged for quay mirroring
+
+    # TODO: TO be filled by Vincent
 
 ## New Images
 
@@ -66,8 +105,3 @@ https://github.com/openshift/release/blob/master/core-services/image-mirroring/t
 https://prow.svc.ci.openshift.org/?job=periodic-image-mirroring-tekton*
 
 **Note:** the periodic image mirroring job will pick up images from new release version only after a new pr (eg: the pr with dummy commit) is merged to the new release branch we created [here](#steps)
-
-
-### Tagging
-
-TODO:
