@@ -30,9 +30,9 @@ function resolve_resources() {
         # This is a release format the output would look like this :
         # quay.io/openshift-pipeline/tektoncd-pipeline-bash:$image_tag
         #
-        # NOTE(chmou): trinaon/true is handled differently here, since we
+        # NOTE(chmou): tinaon/true is handled differently here, since we
         # don't use external images but stuff we build ourselves.
-        sed -e "s%trianon/true%${registry_prefix}-nop:${image_tag}%" -e "s%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 ${registry_prefix}-\4:${image_tag}%" $yaml \
+        sed -e "s%tianon/true%${registry_prefix}-nop:${image_tag}%" -e "s%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 ${registry_prefix}-\4:${image_tag}%" $yaml \
             -r -e "s,github.com/tektoncd/pipeline/cmd/${image_regexp},${registry_prefix}-\1:${image_tag},g" \
             > ${TMP}
      else
@@ -44,7 +44,7 @@ function resolve_resources() {
         #
         # NOTE(chmou): trinaon/true is handled differently here, since we
         # don't use external images but stuff we build ourselves.
-         sed -e "s%trinaon/true%${registry_prefix}:tektoncd-pipeline-nop%" -e \
+         sed -e "s%tinaon/true%${registry_prefix}:tektoncd-pipeline-nop%" -e \
              's%\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)%\1\2 \3\4test-\5%' $yaml \
             -e "s%\(.* image: \)\(github.com\)\(.*\/\)\(.*\)%\1 ""$registry_prefix"'\:tektoncd-pipeline-\4%'  \
             -re "s,github.com/tektoncd/pipeline/cmd/${image_regexp},${registry_prefix}:tektoncd-pipeline-\1,g" \
