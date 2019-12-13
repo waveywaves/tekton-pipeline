@@ -31,24 +31,19 @@
 
 * Get someone to merge the PR before you go to the next step,
 
-* Create a PR in <https://github.com/openshift/tektoncd-pipeline> against `openshift/release-v${RELEASE}` for CI to pickup. The base branch for this PR will be against `openshift/tektoncd-pipeline:release-v${RELEASE}`. See here for an [example](https://github.com/openshift/tektoncd-pipeline/pull/26). You can run this script to automate all of it :
+* Create a PR in <https://github.com/openshift/tektoncd-pipeline> against
+  `openshift/release-v${RELEASE}` with the newly generated yaml file.
+  You can use the makefile target :
+
+  `make  generate-release RELEASE_VERSION=${RELEASE}`
+
+  This will generates a file in
+  `openshift/release/tektoncd-pipeline-${RELEASE}.yaml`. You then create a PR
+  against the git branch `openshift/tektoncd-pipeline:release-v${RELEASE}`.
+
+  You can run  this script to automate all of it :
 
     ```bash
-    USER_REMOTE="youruseremote"
-    git checkout -b test-release-v${RELEASE} release-v${RELEASE}
-    echo "$(date)" > ci
-    git add ci;git commit -m "CITest: v${RELEASE}"
-    git push ${USER_REMOTE} test-release-v${RELEASE}
-    echo "https://github.com/openshift/tektoncd-pipeline/compare/release-v${RELEASE}...${USER_REMOTE}:test-release-v${RELEASE}?expand=1"
-    ```
-
-* After the CI tests passed, it will have the images generated and you can `/close/` the CITEST PR  🎉
-
-### Generate release.yaml
-
-* Create a branch based on `openshift/release-v${RELEASE}` and run the command :
-
-```bash
     USER_REMOTE="youruseremote"
     git checkout -b release-yaml-v${RELEASE} release-v${RELEASE}
     make generate-release RELEASE_VERSION=${RELEASE}
@@ -56,13 +51,9 @@
     git commit -m "Releasing release.yaml v${RELEASE}"
     git push ${USER_REMOTE} release-yaml-v${RELEASE}
     echo "https://github.com/openshift/tektoncd-pipeline/compare/release-v${RELEASE}...${USER_REMOTE}:release-yaml-v${RELEASE}?expand=1"
-```
+    ```
 
-* This will generate a file in
-  `openshift/release/tektoncd-pipeline-${RELEASE}.yaml` commit and push it to
-  your git's USER_REMOTE and then you should have link to make your PR against it.
-
-* When you get it merged then you are good to go!
+* When you get it merged then you have now released the new pipeline release, you can then do the other following tasks.
 
 ### Other components
 
