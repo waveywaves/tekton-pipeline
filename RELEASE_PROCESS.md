@@ -34,6 +34,20 @@ git checkout -B openshift-master openshift/master
 bash -ex ./openshift/release/create-release-branch.sh ${RELEASE}
 ```
 
+* Go to your local [pipelines catalog](https://github.com/openshift/pipelines-catalog) repository and checkout openshift/master with :
+
+```bash
+git fetch -a openshift
+git checkout -B openshift-master openshift/master
+```
+
+* Run the release command :
+
+```bash
+bash -ex ./openshift/release/create-release-branch.sh ${RELEASE}
+```
+
+
 This will do the push of the tag of the branch for catalog
 
 * Create a PR for the new release in the CI configuration repository <https://github.com/openshift/release>.
