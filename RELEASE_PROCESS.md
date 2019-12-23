@@ -21,12 +21,43 @@
   % git push openshift release-v${RELEASE}
   ```
 
+* Go to your [catalog](https://github.com/openshift/tektoncd-catalog) repository and checkout openshift/master with :
+
+```bash
+git fetch -a openshift
+git checkout -B openshift-master openshift/master
+```
+
+* Run the release command :
+
+```bash
+bash -ex ./openshift/release/create-release-branch.sh ${RELEASE}
+```
+
+This will do the push of the tag of the branch for catalog
+
 * Create a PR for the new release in the CI configuration repository <https://github.com/openshift/release>.
   [Look for an example here.](https://github.com/openshift/release/pull/3623). Wait that it gets merged. Make sure you have all the files in there which is one in `ci-operator/config` and two in `ci-operator/job`. Here is a handy script that would take care of almost everything (you need to double check that there is no `release-next` lingering in the files) :
 
+  Take all files for pipelines on release-next and create a release out of it with the right versioning in the file
   ```bash
-   for i in $(find .|grep '.*tektoncd-pipeline-release-next.*');do RV=$(echo ${RELEASE}|sed 's/\./\\\\./g');sed -e "s/\^release-next/^release-v${RV}/" -e "s/release-next/release-v${RELEASE}/" -e "s/tektoncd-next/tektoncd-v${RELEASE}/" $i > $(echo $i| sed "s/release-next/release-v${RELEASE}/");done
-   sed -e "s/nightly/v${RELEASE}/" -e "s/tektoncd-next/tektoncd-v${RELEASE}/g" core-services/image-mirroring/tekton/mapping_tekton_nihghtly_quay > core-services/image-mirroring/tekton/mapping_tekton_v$(echo ${RELEASE}|sed 's/\.[0-9]*$/_quay/;s/\./_/g')
+  for i in $(find .|grep -E '.*tektoncd-pipeline-release-next.*');do RV=$(echo ${RELEASE}|sed 's/\./\\\\./g');sed -e "s/\^release-next/^release-v${RV}/" -e "s/release-next/release-v${RELEASE}/" -e "s/tektoncd-next/tektoncd-v${RELEASE}/" $i > $(echo $i| sed "s/release-next/release-v${RELEASE}/");done
+  ```
+
+  Create a quay mirroring for pipeline
+  ```
+  sed -e "s/nightly/v${RELEASE}/" -e "s/tektoncd-next/tektoncd-v${RELEASE}/g" core-services/image-mirroring/tekton/mapping_tekton_nightly_quay  > core-services/image-mirroring/tekton/mapping_tekton_v$(echo ${RELEASE}|sed 's/\.[0-9]*$/_quay/;s/\./_/g')
+ ```
+
+  Take all files for catalog on release-next and create a release out of it with the right versioning in the file
+  ```bash
+  BASE_RELEASE=$(echo ${RELEASE}|sed 's/\.[0-9]*$//')
+  for i in $(find .|grep -E '.*tektoncd-catalog-release-next.*');do RV=$(echo ${BASE_RELEASE}|sed 's/\./\\\\./g');sed -e "s/\^release-next/^release-v${RV}/" -e "s/release-next/release-v${BASE_RELEASE}/" -e "s/tektoncd-next/tektoncd-v${BASE_RELEASE}/" $i > $(echo $i| sed "s/release-next/release-v${BASE_RELEASE}/");done
+  ```
+
+  Create a quay miroring for catalog
+ ```
+  sed -e "s/nightly/v${RELEASE}/" -e "s/tektoncd-next/tektoncd-v${RELEASE}/g" core-services/image-mirroring/tekton/mapping_tekton_catalog_nightly_quay  > core-services/image-mirroring/tekton/mapping_tekton_catalog_v$(echo ${RELEASE}|sed 's/\.[0-9]*$/_quay/;s/\./_/g')
   ```
 
 * Get someone to merge the PR before you go to the next step,
@@ -53,25 +84,26 @@
     echo "https://github.com/openshift/tektoncd-pipeline/compare/release-v${RELEASE}...${USER_REMOTE}:release-yaml-v${RELEASE}?expand=1"
     ```
 
+* Create a PR in <https://github.com/openshift/tektoncd-pipeline> against
+
 * When you get it merged then you have now released the new pipeline release, you can then do the other following tasks.
 
 ### Other components
 
 ### CLI
 
-* You need to make sure the upstream CLI dependency is updated to the new version.
+* You need to make sure the upstream CLI dependency is updated to the new version against `openshift/release-v${BASE_RELEASE}` (`BASE_RELEASE` mean the `RELEASE` without it's last number, i.e: for a RELEASE `0.9.2` BASE_RELEASE would be `0.9`) :
 
-### Catalog
-
-* Catalog needs to be tagged to the new version in downstream :
-
-    https://github.com/openshift/tektoncd-catalog
-
-    # TODO: To be filed by Vincent,
-
-* Images shipped with catalog needs to be tagged for quay mirroring
-
-    # TODO: TO be filled by Vincent
+    ```bash
+    USER_REMOTE="youruseremote"
+    BASE_RELEASE=$(echo ${RELEASE}|sed 's/\.[0-9]*$//')
+    git checkout -B test-release-v${BASE_RELEASE} release-v${BASE_RELEASE}
+    echo $(date) > ci
+    git add ci
+    git commit -m "[CITEST] Testing release ${BASE_RELEASE}"
+    git push ${USER_REMOTE} test-release-v${BASE_RELEASE}
+    echo "https://github.com/openshift/tektoncd-catalog/compare/release-v${BASE_RELEASE}...${USER_REMOTE}:test-release-v${BASE_RELEASE}?expand=1"
+    ```
 
 ## New Images
 
