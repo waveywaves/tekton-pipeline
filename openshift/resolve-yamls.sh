@@ -34,10 +34,9 @@ function resolve_resources() {
         #
         # tianon/true => openshift/ci-operator/tekton-images/nop/Dockerfile
         # busybox => registry.access.redhat.com/ubi8/ubi-minimal:latest \
-        #
-        # TODO(chmou): gcs-util is still going external and not ubi based
         sed -e "s%tianon/true%${registry_prefix}-nop:${image_tag}%" \
             -e "s%busybox%registry.access.redhat.com/ubi8/ubi-minimal:latest%" \
+            -e "s%google/cloud-sdk%${registry_prefix}-gsutil:${image_tag}%" \
             -e "s%\(.* image:\)\(github.com\)\(.*\/\)\(.*\)%\1 ${registry_prefix}-\4:${image_tag}%" $yaml \
             -r -e "s,github.com/tektoncd/pipeline/cmd/${image_regexp},${registry_prefix}-\1:${image_tag},g" \
             > ${TMP}
@@ -52,10 +51,9 @@ function resolve_resources() {
         #
         # tianon/true => openshift/ci-operator/tekton-images/nop/Dockerfile
         # busybox => registry.access.redhat.com/ubi8/ubi-minimal:latest \
-        #
-        # TODO(chmou): gcs-util is still going external and not ubi based
          sed -e "s%tinaon/true%${registry_prefix}:tektoncd-pipeline-nop%" \
              -e "s%busybox%registry.access.redhat.com/ubi8/ubi-minimal:latest%" \
+             -e "s%google/cloud-sdk%${registry_prefix}:tektoncd-pipeline-gsutil%" \
              -e 's%\(.* image:\)\(github.com\)\(.*\/\)\(test\/\)\(.*\)%\1\2 \3\4test-\5%' $yaml \
              -e "s%\(.* image:\)\(github.com\)\(.*\/\)\(.*\)%\1 ""$registry_prefix"'\:tektoncd-pipeline-\4%'  \
              -re "s,github.com/tektoncd/pipeline/cmd/${image_regexp},${registry_prefix}:tektoncd-pipeline-\1,g" \
