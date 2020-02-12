@@ -14,3 +14,8 @@ else
 fi
 
 generate_pipeline_resources $output_file $image_prefix $tag
+
+# Update value for pipeline.tekton.dev/release label from "devel" to $tag 
+if [[ -n ${tag} ]]; then
+    sed -i -r "s/\"?devel\"?$/${tag}/g" $output_file
+fi
