@@ -1349,6 +1349,147 @@ func TestGetStepActionsData(t *testing.T) {
 			Args:   []string{"Hello, I am of type list"},
 			Script: "echo $@",
 		}},
+	}, {
+		name: "chained parameter references in defaults",
+		tr: &v1.TaskRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mytaskrun",
+				Namespace: "default",
+			},
+			Spec: v1.TaskRunSpec{
+				TaskSpec: &v1.TaskSpec{
+					Steps: []v1.Step{{
+						Ref: &v1.Ref{
+							Name: "stepAction",
+						},
+					}},
+				},
+			},
+		},
+		stepAction: &v1beta1.StepAction{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "stepAction",
+				Namespace: "default",
+			},
+			Spec: v1beta1.StepActionSpec{
+				Image: "myimage",
+				Args:  []string{"$(params.param1)", "$(params.param2)", "$(params.param3)"},
+				Params: v1.ParamSpecs{{
+					Name: "param1",
+					Type: v1.ParamTypeString,
+					Default: &v1.ParamValue{
+						Type:      v1.ParamTypeString,
+						StringVal: "hello",
+					},
+				}, {
+					Name: "param2",
+					Type: v1.ParamTypeString,
+					Default: &v1.ParamValue{
+						Type:      v1.ParamTypeString,
+						StringVal: "$(params.param1) world",
+					},
+				}, {
+					Name: "param3",
+					Type: v1.ParamTypeString,
+					Default: &v1.ParamValue{
+						Type:      v1.ParamTypeString,
+						StringVal: "$(params.param2)!",
+					},
+				}},
+			},
+		},
+		want: []v1.Step{{
+			Image: "myimage",
+			Args:  []string{"hello", "hello world", "hello world!"},
+		}},
+	}, {
+		name: "parameter substitution with task param reference",
+		tr: &v1.TaskRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mytaskrun",
+				Namespace: "default",
+			},
+			Spec: v1.TaskRunSpec{
+				Params: v1.Params{{
+					Name:  "task-param",
+					Value: *v1.NewStructuredValues("task-override"),
+				}},
+				TaskSpec: &v1.TaskSpec{
+					Params: []v1.ParamSpec{{
+						Name:    "task-param",
+						Type:    v1.ParamTypeString,
+						Default: v1.NewStructuredValues("task-default"),
+					}},
+					Steps: []v1.Step{{
+						Ref: &v1.Ref{
+							Name: "stepAction",
+						},
+						Params: v1.Params{{
+							Name:  "message",
+							Value: *v1.NewStructuredValues("override"),
+						}},
+					}},
+				},
+			},
+		},
+		stepAction: &v1beta1.StepAction{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "stepAction",
+				Namespace: "default",
+			},
+			Spec: v1beta1.StepActionSpec{
+				Image: "myimage",
+				Args:  []string{"$(params.message)"},
+				Params: v1.ParamSpecs{{
+					Name:    "message",
+					Type:    v1.ParamTypeString,
+					Default: v1.NewStructuredValues("$(params.task-param)"),
+				}},
+			},
+		},
+		want: []v1.Step{{
+			Image: "myimage",
+			Args:  []string{"override"},
+		}},
+	}, {
+		name: "step result reference in parameter",
+		tr: &v1.TaskRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mytaskrun",
+				Namespace: "default",
+			},
+			Spec: v1.TaskRunSpec{
+				TaskSpec: &v1.TaskSpec{
+					Steps: []v1.Step{{
+						Ref: &v1.Ref{
+							Name: "stepAction",
+						},
+						Params: v1.Params{{
+							Name:  "message",
+							Value: *v1.NewStructuredValues("$(steps.step1.results.output)"),
+						}},
+					}},
+				},
+			},
+		},
+		stepAction: &v1beta1.StepAction{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "stepAction",
+				Namespace: "default",
+			},
+			Spec: v1beta1.StepActionSpec{
+				Image: "myimage",
+				Args:  []string{"$(params.message)"},
+				Params: v1.ParamSpecs{{
+					Name: "message",
+					Type: v1.ParamTypeString,
+				}},
+			},
+		},
+		want: []v1.Step{{
+			Image: "myimage",
+			Args:  []string{"$(steps.step1.results.output)"},
+		}},
 	}}
 	for _, tt := range tests {
 		ctx := context.Background()
