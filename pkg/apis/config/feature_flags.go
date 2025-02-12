@@ -156,7 +156,7 @@ var (
 	DefaultEnableStepActions = PerFeatureFlag{
 		Name:      EnableStepActions,
 		Stability: BetaAPIFields,
-		Enabled:   DefaultBetaFeatureEnabled,
+		Enabled:   true,
 	}
 
 	// DefaultEnableArtifacts is the default PerFeatureFlag value for EnableArtifacts
