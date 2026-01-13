@@ -341,6 +341,21 @@ func (pt PipelineTask) validateRefOrSpec(ctx context.Context) (errs *apis.FieldE
 	return errs
 }
 
+// isValidAPIVersion validates that an apiVersion follows the group/version format.
+// It requires exactly one forward slash separating a non-empty group and version.
+func isValidAPIVersion(apiVersion string) bool {
+	parts := strings.Split(apiVersion, "/")
+	if len(parts) != 2 {
+		return false
+	}
+	group, version := parts[0], parts[1]
+	// Both group and version must be non-empty
+	if group == "" || version == "" {
+		return false
+	}
+	return true
+}
+
 // validateCustomTask validates custom task specifications - checking kind and fail if not yet supported features specified
 func (pt PipelineTask) validateCustomTask() (errs *apis.FieldError) {
 	if pt.TaskRef != nil && pt.TaskRef.Kind == "" {
@@ -354,6 +369,17 @@ func (pt PipelineTask) validateCustomTask() (errs *apis.FieldError) {
 	}
 	if pt.TaskSpec != nil && pt.TaskSpec.APIVersion == "" {
 		errs = errs.Also(apis.ErrInvalidValue("custom task spec must specify apiVersion", "taskSpec.apiVersion"))
+	}
+	// Validate apiVersion format
+	if pt.TaskRef != nil && pt.TaskRef.APIVersion != "" && !isValidAPIVersion(pt.TaskRef.APIVersion) {
+		errs = errs.Also(apis.ErrInvalidValue(
+			fmt.Sprintf("apiVersion %q is not a valid format, must be group/version (e.g., example.dev/v1)", pt.TaskRef.APIVersion),
+			"taskRef.apiVersion"))
+	}
+	if pt.TaskSpec != nil && pt.TaskSpec.APIVersion != "" && !isValidAPIVersion(pt.TaskSpec.APIVersion) {
+		errs = errs.Also(apis.ErrInvalidValue(
+			fmt.Sprintf("apiVersion %q is not a valid format, must be group/version (e.g., example.dev/v1)", pt.TaskSpec.APIVersion),
+			"taskSpec.apiVersion"))
 	}
 	return errs
 }

@@ -483,6 +483,39 @@ func TestPipelineTask_ValidateCustomTask(t *testing.T) {
 			Message: `invalid value: custom task ref must specify apiVersion`,
 			Paths:   []string{"taskRef.apiVersion"},
 		},
+	}, {
+		name: "custom task - taskRef with invalid apiVersion format (no slash)",
+		task: PipelineTask{Name: "foo", TaskRef: &TaskRef{APIVersion: "invalid-api-version", Kind: "Example", Name: ""}},
+		expectedError: apis.FieldError{
+			Message: `invalid value: apiVersion "invalid-api-version" is not a valid format, must be group/version (e.g., example.dev/v1)`,
+			Paths:   []string{"taskRef.apiVersion"},
+		},
+	}, {
+		name: "custom task - taskRef with invalid apiVersion format (empty group)",
+		task: PipelineTask{Name: "foo", TaskRef: &TaskRef{APIVersion: "/v1", Kind: "Example", Name: ""}},
+		expectedError: apis.FieldError{
+			Message: `invalid value: apiVersion "/v1" is not a valid format, must be group/version (e.g., example.dev/v1)`,
+			Paths:   []string{"taskRef.apiVersion"},
+		},
+	}, {
+		name: "custom task - taskRef with invalid apiVersion format (empty version)",
+		task: PipelineTask{Name: "foo", TaskRef: &TaskRef{APIVersion: "example.dev/", Kind: "Example", Name: ""}},
+		expectedError: apis.FieldError{
+			Message: `invalid value: apiVersion "example.dev/" is not a valid format, must be group/version (e.g., example.dev/v1)`,
+			Paths:   []string{"taskRef.apiVersion"},
+		},
+	}, {
+		name: "custom task - taskSpec with invalid apiVersion format (no slash)",
+		task: PipelineTask{Name: "foo", TaskSpec: &EmbeddedTask{
+			TypeMeta: runtime.TypeMeta{
+				APIVersion: "invalid-api-version",
+				Kind:       "Example",
+			},
+		}},
+		expectedError: apis.FieldError{
+			Message: `invalid value: apiVersion "invalid-api-version" is not a valid format, must be group/version (e.g., example.dev/v1)`,
+			Paths:   []string{"taskSpec.apiVersion"},
+		},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -492,6 +525,82 @@ func TestPipelineTask_ValidateCustomTask(t *testing.T) {
 			}
 			if d := cmp.Diff(tt.expectedError.Error(), err.Error(), cmpopts.IgnoreUnexported(apis.FieldError{})); d != "" {
 				t.Errorf("PipelineTaskList.ValidateCustomTask() errors diff %s", diff.PrintWantGot(d))
+			}
+		})
+	}
+}
+
+func TestIsValidAPIVersion(t *testing.T) {
+	tests := []struct {
+		name       string
+		apiVersion string
+		want       bool
+	}{{
+		name:       "valid apiVersion with dot in group",
+		apiVersion: "example.dev/v1",
+		want:       true,
+	}, {
+		name:       "valid apiVersion without dot in group",
+		apiVersion: "mygroup/v1beta1",
+		want:       true,
+	}, {
+		name:       "valid apiVersion with subdomain group",
+		apiVersion: "custom.tekton.dev/v1",
+		want:       true,
+	}, {
+		name:       "invalid - no slash",
+		apiVersion: "invalid-api-version",
+		want:       false,
+	}, {
+		name:       "invalid - empty group",
+		apiVersion: "/v1",
+		want:       false,
+	}, {
+		name:       "invalid - empty version",
+		apiVersion: "example.dev/",
+		want:       false,
+	}, {
+		name:       "invalid - multiple slashes",
+		apiVersion: "example.dev/v1/extra",
+		want:       false,
+	}, {
+		name:       "invalid - empty string",
+		apiVersion: "",
+		want:       false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isValidAPIVersion(tt.apiVersion); got != tt.want {
+				t.Errorf("isValidAPIVersion(%q) = %v, want %v", tt.apiVersion, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPipelineTask_ValidateCustomTask_Success(t *testing.T) {
+	tests := []struct {
+		name string
+		task PipelineTask
+	}{{
+		name: "custom task - valid taskRef with standard apiVersion",
+		task: PipelineTask{Name: "foo", TaskRef: &TaskRef{APIVersion: "example.dev/v1", Kind: "Example", Name: ""}},
+	}, {
+		name: "custom task - valid taskRef with apiVersion without dot in group",
+		task: PipelineTask{Name: "foo", TaskRef: &TaskRef{APIVersion: "mygroup/v1beta1", Kind: "Example", Name: ""}},
+	}, {
+		name: "custom task - valid taskSpec with standard apiVersion",
+		task: PipelineTask{Name: "foo", TaskSpec: &EmbeddedTask{
+			TypeMeta: runtime.TypeMeta{
+				APIVersion: "custom.tekton.dev/v1",
+				Kind:       "Example",
+			},
+		}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.task.validateCustomTask()
+			if err != nil {
+				t.Errorf("PipelineTask.validateCustomTask() returned unexpected error: %v", err)
 			}
 		})
 	}
