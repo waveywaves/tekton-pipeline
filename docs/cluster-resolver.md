@@ -28,8 +28,7 @@ The `cache` parameter controls whether the cluster resolver caches resolved reso
 |------------|-------------|
 | `always`   | Always cache the resolved resource, regardless of whether it has an immutable reference. |
 | `never`    | Never cache the resolved resource. |
-| `auto`     | **Cluster resolver behavior**: Never cache (cluster resources lack immutable references). |
-| (not specified) | **Default behavior**: Never cache (same as `auto` for cluster resolver). |
+| `auto`     | **Cluster resolver behavior**: Never cache (cluster resources lack immutable references). This is the default. |
 
 **Note**: The cluster resolver only caches when `cache: always` is explicitly specified. This is because cluster resources (Tasks, Pipelines, etc.) do not have immutable references like Git commit hashes or bundle digests, making automatic caching unreliable.
 
@@ -58,7 +57,7 @@ metadata:
   name: cluster-resolver-config
   namespace: tekton-pipelines-resolvers
 data:
-  default-cache-mode: "never"  # Never cache by default (since cluster resources are mutable)
+  default-cache-mode: "always"  # Enable caching (default is "auto" which means no caching for cluster resolver)
 ```
 
 ## Requirements
