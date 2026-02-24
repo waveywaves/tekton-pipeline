@@ -1,0 +1,18 @@
+# Squash Command Workflow (test setup - points to waveywaves/plumbing fork)
+name: Squash Command
+
+on:
+  repository_dispatch:
+    types: [squash-command]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  squash:
+    name: Squash PR
+    uses: waveywaves/plumbing/.github/workflows/_squash-command.yaml@e985aea45138ecf87e23f9675ee50b0d93976c9b
+    secrets:
+      CHATOPS_TOKEN: ${{ secrets.CHATOPS_TOKEN }}
