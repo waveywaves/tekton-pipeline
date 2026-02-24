@@ -13,6 +13,6 @@ permissions:
 jobs:
   squash:
     name: Squash PR
-    uses: waveywaves/plumbing/.github/workflows/_squash-command.yaml@e985aea45138ecf87e23f9675ee50b0d93976c9b
+    uses: waveywaves/plumbing/.github/workflows/_squash-command.yaml@be4a4fcda2bd9ded14c1ff9823bdb9976ff1ebd7
     secrets:
       CHATOPS_TOKEN: ${{ secrets.CHATOPS_TOKEN }}
