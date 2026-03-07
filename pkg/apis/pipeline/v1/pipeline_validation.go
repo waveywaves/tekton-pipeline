@@ -93,6 +93,8 @@ func (ps *PipelineSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
 	errs = errs.Also(validateArtifactReference(ctx, ps.Tasks, ps.Finally))
 	errs = errs.Also(validateMatrix(ctx, ps.Tasks).ViaField("tasks"))
 	errs = errs.Also(validateMatrix(ctx, ps.Finally).ViaField("finally"))
+	errs = errs.Also(validateLoop(ctx, ps.Tasks).ViaField("tasks"))
+	errs = errs.Also(validateLoop(ctx, ps.Finally).ViaField("finally"))
 	return errs
 }
 

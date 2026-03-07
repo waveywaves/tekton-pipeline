@@ -552,6 +552,11 @@ type PipelineRunStatusFields struct {
 	// +optional
 	FinallyStartTime *metav1.Time `json:"finallyStartTime,omitempty"`
 
+	// LoopStates tracks the iteration state for any looped PipelineTasks.
+	// +optional
+	// +listType=atomic
+	LoopStates []LoopState `json:"loopStates,omitempty"`
+
 	// Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).
 	// +optional
 	Provenance *Provenance `json:"provenance,omitempty"`

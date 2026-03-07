@@ -231,6 +231,14 @@ type PipelineTask struct {
 	// +optional
 	Matrix *Matrix `json:"matrix,omitempty"`
 
+	// Loop declares iteration configuration for this task.
+	// The task will be executed repeatedly until the Until condition is met
+	// or MaxIterations is reached. Results from each iteration can feed
+	// into the next via $(loop.previousResult.<name>).
+	// Loop is mutually exclusive with Matrix.
+	// +optional
+	Loop *Loop `json:"loop,omitempty"`
+
 	// Workspaces maps workspaces from the pipeline spec to the workspaces
 	// declared in the Task.
 	// +optional
