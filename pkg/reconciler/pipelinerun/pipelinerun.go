@@ -714,12 +714,35 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1.PipelineRun, getPipel
 		pipelineRunFacts.TimeoutsState.PipelineTimeout = &pipelineTimeout
 	}
 
-	// Set LoopComplete on any looped tasks based on the persisted LoopState
+	// Set LoopComplete on any looped tasks.
+	// Check both persisted LoopState AND actual TaskRuns on the cluster
+	// (LoopState may not persist if CRD schema doesn't include it yet).
 	for _, rpt := range pipelineRunFacts.State {
 		if rpt.PipelineTask.IsLooped() {
 			ls := resources.GetLoopState(pr, rpt.PipelineTask.Name)
 			if resources.IsLoopComplete(ls) {
 				rpt.LoopComplete = true
+			} else {
+				// Fallback: check if all maxIterations TaskRuns exist and succeeded
+				maxIter := rpt.PipelineTask.Loop.MaxIterations
+				allDone := true
+				for iter := 0; iter < maxIter; iter++ {
+					trName := resources.GetLoopTaskRunName(pr.Name, rpt.PipelineTask.Name, iter)
+					found := false
+					for _, tr := range rpt.TaskRuns {
+						if tr.Name == trName && tr.IsDone() && tr.IsSuccessful() {
+							found = true
+							break
+						}
+					}
+					if !found {
+						allDone = false
+						break
+					}
+				}
+				if allDone && len(rpt.TaskRuns) >= maxIter {
+					rpt.LoopComplete = true
+				}
 			}
 		}
 	}
