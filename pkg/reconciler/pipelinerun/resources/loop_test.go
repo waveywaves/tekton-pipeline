@@ -594,7 +594,7 @@ func TestLoopGetLatestIterationResults(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   0,
 				TaskRunName: "pr-task-loop-0",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 				Results: []v1.TaskRunResult{{
 					Name:  "loss",
 					Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "0.5"},
@@ -615,7 +615,7 @@ func TestLoopGetLatestIterationResults(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   0,
 				TaskRunName: "pr-task-loop-0",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 				Results: []v1.TaskRunResult{{
 					Name:  "loss",
 					Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "0.9"},
@@ -623,7 +623,7 @@ func TestLoopGetLatestIterationResults(t *testing.T) {
 			}, {
 				Iteration:   1,
 				TaskRunName: "pr-task-loop-1",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 				Results: []v1.TaskRunResult{{
 					Name:  "loss",
 					Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "0.3"},
@@ -640,7 +640,7 @@ func TestLoopGetLatestIterationResults(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   0,
 				TaskRunName: "pr-task-loop-0",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 			}},
 		},
 		want: map[string]string{},
@@ -653,4 +653,106 @@ func TestLoopGetLatestIterationResults(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLoopGetTaskRunNameOverflow(t *testing.T) {
+	t.Run("long names are capped at 63 chars", func(t *testing.T) {
+		got := resources.GetLoopTaskRunName(
+			"very-long-pipeline-run-name-that-is-way-too-long",
+			"very-long-task-name-that-is-also-too-long",
+			42,
+		)
+		if len(got) > 63 {
+			t.Errorf("expected name length <= 63, got %d: %q", len(got), got)
+		}
+	})
+
+	t.Run("short names are unmodified", func(t *testing.T) {
+		got := resources.GetLoopTaskRunName("pr", "task", 0)
+		want := "pr-task-loop-0"
+		if got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("truncated name ends with iteration suffix", func(t *testing.T) {
+		got := resources.GetLoopTaskRunName(
+			"very-long-pipeline-run-name-that-is-way-too-long",
+			"very-long-task-name-that-is-also-too-long",
+			7,
+		)
+		if len(got) > 63 {
+			t.Errorf("expected name length <= 63, got %d: %q", len(got), got)
+		}
+		// Must end with the iteration suffix for deterministic lookups
+		wantSuffix := "-loop-7"
+		if got[len(got)-len(wantSuffix):] != wantSuffix {
+			t.Errorf("expected name to end with %q, got %q", wantSuffix, got)
+		}
+	})
+}
+
+func TestLoopIsCompleteWithTerminationReason(t *testing.T) {
+	tests := []struct {
+		name string
+		ls   *v1.LoopState
+		want bool
+	}{{
+		name: "complete - IterationFailed termination reason",
+		ls: &v1.LoopState{
+			CurrentIteration:  2,
+			MaxIterations:     10,
+			Converged:         false,
+			TerminationReason: v1.LoopTerminationReasonIterationFailed,
+		},
+		want: true,
+	}, {
+		name: "not complete - no termination reason and iteration < max",
+		ls: &v1.LoopState{
+			CurrentIteration: 2,
+			MaxIterations:    10,
+			Converged:        false,
+		},
+		want: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resources.IsLoopComplete(tt.ls)
+			if got != tt.want {
+				t.Errorf("IsLoopComplete() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoopApplyContextToParamsUnresolvedPlaceholders(t *testing.T) {
+	t.Run("unresolved previousResult placeholders replaced with empty string on iter 0", func(t *testing.T) {
+		params := v1.Params{{
+			Name:  "model-path",
+			Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "$(loop.previousResult.checkpoint)"},
+		}}
+		got := resources.ApplyLoopContextToParams(params, 0, map[string]string{})
+		want := v1.Params{{
+			Name:  "model-path",
+			Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: ""},
+		}}
+		if d := cmp.Diff(want, got); d != "" {
+			t.Errorf("ApplyLoopContextToParams() %s", diff.PrintWantGot(d))
+		}
+	})
+
+	t.Run("mixed placeholder with static text on iter 0", func(t *testing.T) {
+		params := v1.Params{{
+			Name:  "message",
+			Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "prev=$(loop.previousResult.loss)-iter=$(loop.iteration)"},
+		}}
+		got := resources.ApplyLoopContextToParams(params, 0, map[string]string{})
+		want := v1.Params{{
+			Name:  "message",
+			Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "prev=-iter=0"},
+		}}
+		if d := cmp.Diff(want, got); d != "" {
+			t.Errorf("ApplyLoopContextToParams() %s", diff.PrintWantGot(d))
+		}
+	})
 }
