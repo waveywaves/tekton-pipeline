@@ -39,6 +39,11 @@ func (c *Reconciler) handleLoopedTask(
 	pr *v1.PipelineRun,
 	facts *resources.PipelineRunFacts,
 ) error {
+	// If the PipelineRun is cancelled, do not start or advance any loop iterations.
+	if pr.IsCancelled() || pr.IsGracefullyCancelled() {
+		return nil
+	}
+
 	logger := logging.FromContext(ctx)
 	recorder := controller.GetEventRecorder(ctx)
 	loop := rpt.PipelineTask.Loop
@@ -52,22 +57,23 @@ func (c *Reconciler) handleLoopedTask(
 		return nil
 	}
 
+	// Build a map of TaskRun name -> *TaskRun for O(1) lookups (Fix: O(n*m) scan)
+	taskRunsByName := make(map[string]*v1.TaskRun, len(rpt.TaskRuns))
+	for _, tr := range rpt.TaskRuns {
+		taskRunsByName[tr.Name] = tr
+	}
+
 	// Find the latest completed and the latest overall TaskRun for this loop
-	// We scan all TaskRuns to determine the actual loop state from what exists on the cluster
 	var latestCompletedIteration = -1
 	var latestTaskRunIteration = -1
-	for _, tr := range rpt.TaskRuns {
-		// Parse iteration number from TaskRun name: <pr>-<task>-loop-<N>
-		for iter := 0; iter < ls.MaxIterations; iter++ {
-			expectedName := resources.GetLoopTaskRunName(pr.Name, taskName, iter)
-			if tr.Name == expectedName {
-				if iter > latestTaskRunIteration {
-					latestTaskRunIteration = iter
-				}
-				if tr.IsDone() && tr.IsSuccessful() && iter > latestCompletedIteration {
-					latestCompletedIteration = iter
-				}
-				break
+	for iter := 0; iter < ls.MaxIterations; iter++ {
+		expectedName := resources.GetLoopTaskRunName(pr.Name, taskName, iter)
+		if tr, ok := taskRunsByName[expectedName]; ok {
+			if iter > latestTaskRunIteration {
+				latestTaskRunIteration = iter
+			}
+			if tr.IsDone() && tr.IsSuccessful() && iter > latestCompletedIteration {
+				latestCompletedIteration = iter
 			}
 		}
 	}
@@ -77,12 +83,9 @@ func (c *Reconciler) handleLoopedTask(
 		ls.CurrentIteration = latestCompletedIteration
 		// Record the completed iteration if not already tracked
 		completedTRName := resources.GetLoopTaskRunName(pr.Name, taskName, latestCompletedIteration)
-		for _, tr := range rpt.TaskRuns {
-			if tr.Name == completedTRName && tr.IsSuccessful() {
-				resources.RecordLoopIteration(ls, latestCompletedIteration, completedTRName,
-					"Succeeded", tr.Status.Results)
-				break
-			}
+		if tr, ok := taskRunsByName[completedTRName]; ok && tr.IsSuccessful() {
+			resources.RecordLoopIteration(ls, latestCompletedIteration, completedTRName,
+				v1.LoopIterationStatusSucceeded, tr.Status.Results)
 		}
 	}
 
@@ -90,14 +93,8 @@ func (c *Reconciler) handleLoopedTask(
 	// the latest state (handles re-reconciliation after LoopState loss)
 	for iter := ls.CurrentIteration; iter < ls.MaxIterations; iter++ {
 		trName := resources.GetLoopTaskRunName(pr.Name, taskName, iter)
-		var tr *v1.TaskRun
-		for _, t := range rpt.TaskRuns {
-			if t.Name == trName {
-				tr = t
-				break
-			}
-		}
-		if tr == nil {
+		tr, exists := taskRunsByName[trName]
+		if !exists {
 			// No TaskRun for this iteration — this is where we need to act
 			ls.CurrentIteration = iter
 			break
@@ -108,12 +105,12 @@ func (c *Reconciler) handleLoopedTask(
 			return nil
 		}
 		if tr.IsSuccessful() {
-			resources.RecordLoopIteration(ls, iter, trName, "Succeeded", tr.Status.Results)
+			resources.RecordLoopIteration(ls, iter, trName, v1.LoopIterationStatusSucceeded, tr.Status.Results)
 			ls.CurrentIteration = iter
 		} else {
-			// Failed iteration — stop
-			resources.RecordLoopIteration(ls, iter, trName, "Failed", tr.Status.Results)
-			ls.Converged = true
+			// Failed iteration — stop with proper termination reason
+			resources.RecordLoopIteration(ls, iter, trName, v1.LoopIterationStatusFailed, tr.Status.Results)
+			ls.TerminationReason = v1.LoopTerminationReasonIterationFailed
 			rpt.LoopComplete = true
 			return nil
 		}
@@ -121,24 +118,17 @@ func (c *Reconciler) handleLoopedTask(
 
 	// If we walked through ALL iterations and they all succeeded → loop is done
 	lastIterName := resources.GetLoopTaskRunName(pr.Name, taskName, ls.MaxIterations-1)
-	for _, tr := range rpt.TaskRuns {
-		if tr.Name == lastIterName && tr.IsDone() && tr.IsSuccessful() {
-			ls.CurrentIteration = ls.MaxIterations
-			rpt.LoopComplete = true
-			logger.Infof("Loop task %q: all %d iterations complete", taskName, ls.MaxIterations)
-			return nil
-		}
+	if tr, ok := taskRunsByName[lastIterName]; ok && tr.IsDone() && tr.IsSuccessful() {
+		ls.CurrentIteration = ls.MaxIterations
+		ls.TerminationReason = v1.LoopTerminationReasonMaxIterationsReached
+		rpt.LoopComplete = true
+		logger.Infof("Loop task %q: all %d iterations complete", taskName, ls.MaxIterations)
+		return nil
 	}
 
 	// Determine the current TaskRun
 	currentTaskRunName := resources.GetLoopTaskRunName(pr.Name, taskName, ls.CurrentIteration)
-	var currentTaskRun *v1.TaskRun
-	for _, tr := range rpt.TaskRuns {
-		if tr.Name == currentTaskRunName {
-			currentTaskRun = tr
-			break
-		}
-	}
+	currentTaskRun := taskRunsByName[currentTaskRunName]
 
 	// Case 1: No TaskRun for current iteration exists → create it
 	if currentTaskRun == nil {
@@ -175,7 +165,7 @@ func (c *Reconciler) handleLoopedTask(
 		rpt.TaskRuns = append(rpt.TaskRuns, taskRuns...)
 
 		// Record the iteration as started
-		resources.RecordLoopIteration(ls, ls.CurrentIteration, currentTaskRunName, "Running", nil)
+		resources.RecordLoopIteration(ls, ls.CurrentIteration, currentTaskRunName, v1.LoopIterationStatusRunning, nil)
 
 		logger.Infof("Loop task %q: iteration %d TaskRun %q created",
 			taskName, ls.CurrentIteration, currentTaskRunName)
@@ -191,7 +181,7 @@ func (c *Reconciler) handleLoopedTask(
 	if currentTaskRun.IsSuccessful() {
 		// Record successful iteration with results
 		resources.RecordLoopIteration(ls, ls.CurrentIteration, currentTaskRunName,
-			"Succeeded", currentTaskRun.Status.Results)
+			v1.LoopIterationStatusSucceeded, currentTaskRun.Status.Results)
 
 		logger.Infof("Loop task %q: iteration %d completed successfully",
 			taskName, ls.CurrentIteration)
@@ -232,28 +222,24 @@ func (c *Reconciler) handleLoopedTask(
 					nextTaskRunName, ls.CurrentIteration, err)
 			}
 			rpt.TaskRuns = append(rpt.TaskRuns, taskRuns...)
-			resources.RecordLoopIteration(ls, ls.CurrentIteration, nextTaskRunName, "Running", nil)
+			resources.RecordLoopIteration(ls, ls.CurrentIteration, nextTaskRunName, v1.LoopIterationStatusRunning, nil)
 
 			logger.Infof("Loop task %q: iteration %d TaskRun %q created",
 				taskName, ls.CurrentIteration, nextTaskRunName)
 		} else {
-			reason := "max iterations reached"
-			if ls.Converged {
-				reason = "Until condition met"
-			}
+			reason := string(ls.TerminationReason)
 			logger.Infof("Loop task %q: loop complete after %d iterations (%s)",
 				taskName, ls.CurrentIteration, reason)
 		}
 	} else {
-		// TaskRun failed — record and stop the loop
+		// TaskRun failed — record and stop the loop with proper termination reason
 		resources.RecordLoopIteration(ls, ls.CurrentIteration, currentTaskRunName,
-			"Failed", currentTaskRun.Status.Results)
+			v1.LoopIterationStatusFailed, currentTaskRun.Status.Results)
 
 		logger.Warnf("Loop task %q: iteration %d failed, stopping loop",
 			taskName, ls.CurrentIteration)
 
-		// Mark as converged to stop the loop (failed state)
-		ls.Converged = true
+		ls.TerminationReason = v1.LoopTerminationReasonIterationFailed
 	}
 
 	return nil

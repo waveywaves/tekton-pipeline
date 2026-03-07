@@ -339,7 +339,7 @@ func TestLoopEvaluateUntilCondition(t *testing.T) {
 		wantErr:         false,
 	}, {
 		name:      "string comparison with previousResult",
-		untilExpr: "$(loop.previousResult.status) == 'converged'",
+		untilExpr: "'$(loop.previousResult.status)' == 'converged'",
 		iteration: 2,
 		previousResults: map[string]string{
 			"status": "converged",
@@ -348,7 +348,7 @@ func TestLoopEvaluateUntilCondition(t *testing.T) {
 		wantErr: false,
 	}, {
 		name:      "string comparison not matched",
-		untilExpr: "$(loop.previousResult.status) == 'converged'",
+		untilExpr: "'$(loop.previousResult.status)' == 'converged'",
 		iteration: 1,
 		previousResults: map[string]string{
 			"status": "training",
@@ -386,7 +386,7 @@ func TestLoopAdvanceIteration(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   0,
 				TaskRunName: "pr-task-loop-0",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 				Results: []v1.TaskRunResult{{
 					Name:  "output",
 					Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "result-0"},
@@ -414,7 +414,7 @@ func TestLoopAdvanceIteration(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   4,
 				TaskRunName: "pr-task-loop-4",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 			}},
 		}
 
@@ -428,6 +428,10 @@ func TestLoopAdvanceIteration(t *testing.T) {
 		if ls.CurrentIteration != 5 {
 			t.Errorf("expected CurrentIteration 5, got %d", ls.CurrentIteration)
 		}
+		if ls.TerminationReason != v1.LoopTerminationReasonMaxIterationsReached {
+			t.Errorf("expected TerminationReason %q, got %q",
+				v1.LoopTerminationReasonMaxIterationsReached, ls.TerminationReason)
+		}
 	})
 
 	t.Run("stops on convergence", func(t *testing.T) {
@@ -438,7 +442,7 @@ func TestLoopAdvanceIteration(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   2,
 				TaskRunName: "pr-task-loop-2",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 			}},
 		}
 
@@ -453,6 +457,10 @@ func TestLoopAdvanceIteration(t *testing.T) {
 		if !ls.Converged {
 			t.Error("expected Converged to be true")
 		}
+		if ls.TerminationReason != v1.LoopTerminationReasonConverged {
+			t.Errorf("expected TerminationReason %q, got %q",
+				v1.LoopTerminationReasonConverged, ls.TerminationReason)
+		}
 		if ls.CurrentIteration != 3 {
 			t.Errorf("expected CurrentIteration 3, got %d", ls.CurrentIteration)
 		}
@@ -466,7 +474,7 @@ func TestLoopAdvanceIteration(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   0,
 				TaskRunName: "pr-task-loop-0",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 			}},
 		}
 
@@ -489,7 +497,7 @@ func TestLoopRecordIteration(t *testing.T) {
 			Name:  "loss",
 			Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "0.5"},
 		}}
-		resources.RecordLoopIteration(ls, 0, "pr-task-loop-0", "Succeeded", results)
+		resources.RecordLoopIteration(ls, 0, "pr-task-loop-0", v1.LoopIterationStatusSucceeded, results)
 
 		if len(ls.Iterations) != 1 {
 			t.Fatalf("expected 1 iteration recorded, got %d", len(ls.Iterations))
@@ -500,7 +508,7 @@ func TestLoopRecordIteration(t *testing.T) {
 		if ls.Iterations[0].TaskRunName != "pr-task-loop-0" {
 			t.Errorf("expected TaskRunName 'pr-task-loop-0', got %q", ls.Iterations[0].TaskRunName)
 		}
-		if ls.Iterations[0].Status != "Succeeded" {
+		if ls.Iterations[0].Status != v1.LoopIterationStatusSucceeded {
 			t.Errorf("expected Status 'Succeeded', got %q", ls.Iterations[0].Status)
 		}
 		if len(ls.Iterations[0].Results) != 1 {
@@ -519,7 +527,7 @@ func TestLoopRecordIteration(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   0,
 				TaskRunName: "pr-task-loop-0",
-				Status:      "Running",
+				Status:      v1.LoopIterationStatusRunning,
 			}},
 		}
 
@@ -527,12 +535,12 @@ func TestLoopRecordIteration(t *testing.T) {
 			Name:  "loss",
 			Value: v1.ParamValue{Type: v1.ParamTypeString, StringVal: "0.3"},
 		}}
-		resources.RecordLoopIteration(ls, 0, "pr-task-loop-0", "Succeeded", results)
+		resources.RecordLoopIteration(ls, 0, "pr-task-loop-0", v1.LoopIterationStatusSucceeded, results)
 
 		if len(ls.Iterations) != 1 {
 			t.Fatalf("expected 1 iteration (updated), got %d", len(ls.Iterations))
 		}
-		if ls.Iterations[0].Status != "Succeeded" {
+		if ls.Iterations[0].Status != v1.LoopIterationStatusSucceeded {
 			t.Errorf("expected updated Status 'Succeeded', got %q", ls.Iterations[0].Status)
 		}
 		if len(ls.Iterations[0].Results) != 1 {
@@ -548,11 +556,11 @@ func TestLoopRecordIteration(t *testing.T) {
 			Iterations: []v1.LoopIterationState{{
 				Iteration:   0,
 				TaskRunName: "pr-task-loop-0",
-				Status:      "Succeeded",
+				Status:      v1.LoopIterationStatusSucceeded,
 			}},
 		}
 
-		resources.RecordLoopIteration(ls, 1, "pr-task-loop-1", "Succeeded", nil)
+		resources.RecordLoopIteration(ls, 1, "pr-task-loop-1", v1.LoopIterationStatusSucceeded, nil)
 
 		if len(ls.Iterations) != 2 {
 			t.Fatalf("expected 2 iterations, got %d", len(ls.Iterations))

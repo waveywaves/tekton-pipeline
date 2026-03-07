@@ -18,12 +18,17 @@ package resources
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/google/cel-go/cel"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"knative.dev/pkg/kmeta"
 )
+
+// loopPreviousResultRE matches any $(loop.previousResult.<name>) placeholder.
+var loopPreviousResultRE = regexp.MustCompile(`\$\(loop\.previousResult\.[^)]+\)`)
 
 // GetLoopState returns the LoopState for a PipelineTask from the PipelineRun status,
 // or nil if no loop state exists yet.
@@ -52,12 +57,13 @@ func GetOrCreateLoopState(pr *v1.PipelineRun, pipelineTaskName string, maxIterat
 	return &pr.Status.LoopStates[len(pr.Status.LoopStates)-1]
 }
 
-// IsLoopComplete returns true if the loop has finished — either converged or hit max iterations.
+// IsLoopComplete returns true if the loop has finished — either converged, hit max iterations,
+// or has a termination reason set (e.g. IterationFailed).
 func IsLoopComplete(ls *v1.LoopState) bool {
 	if ls == nil {
 		return false
 	}
-	return ls.Converged || ls.CurrentIteration >= ls.MaxIterations
+	return ls.Converged || ls.CurrentIteration >= ls.MaxIterations || ls.TerminationReason != ""
 }
 
 // GetCurrentLoopIteration returns the current iteration number for a looped task.
@@ -72,8 +78,23 @@ func GetCurrentLoopIteration(pr *v1.PipelineRun, pipelineTaskName string) int {
 
 // GetLoopTaskRunName generates the name for a TaskRun at a specific iteration.
 // Format: <pipelinerun>-<pipelinetask>-loop-<iteration>
+// Names are capped at 63 characters using kmeta.ChildName (hash suffix on truncation).
 func GetLoopTaskRunName(pipelineRunName, pipelineTaskName string, iteration int) string {
-	return fmt.Sprintf("%s-%s-loop-%d", pipelineRunName, pipelineTaskName, iteration)
+	suffix := fmt.Sprintf("-%s-loop-%d", pipelineTaskName, iteration)
+	name := kmeta.ChildName(pipelineRunName, suffix)
+	// If kmeta.ChildName truncated and the iteration suffix was lost, ensure uniqueness
+	// by trimming and re-appending the loop iteration suffix.
+	iterSuffix := fmt.Sprintf("-loop-%d", iteration)
+	if !strings.HasSuffix(name, iterSuffix) {
+		baseName := kmeta.ChildName(pipelineRunName, "-"+pipelineTaskName)
+		// 63 - len("-loop-") - max digits for iteration
+		maxBase := 63 - len(iterSuffix)
+		if len(baseName) > maxBase {
+			baseName = baseName[:maxBase]
+		}
+		name = baseName + iterSuffix
+	}
+	return name
 }
 
 // GetLatestLoopIterationResults returns the results from the most recently
@@ -106,6 +127,13 @@ func ApplyLoopContextToParams(params v1.Params, iteration int, previousResults m
 		for name, result := range previousResults {
 			placeholder := fmt.Sprintf("$(loop.previousResult.%s)", name)
 			val = strings.ReplaceAll(val, placeholder, result)
+		}
+
+		// If previousResults is empty (e.g. iteration 0) and there are still
+		// unresolved $(loop.previousResult.*) placeholders, replace them with
+		// empty string so the TaskRun doesn't receive literal placeholder text.
+		if len(previousResults) == 0 {
+			val = loopPreviousResultRE.ReplaceAllString(val, "")
 		}
 
 		applied[i].Value.StringVal = val
@@ -157,7 +185,7 @@ func EvaluateLoopUntilCondition(untilExpr string, iteration int, previousResults
 }
 
 // RecordLoopIteration records a completed iteration in the LoopState.
-func RecordLoopIteration(ls *v1.LoopState, iteration int, taskRunName string, status string, results []v1.TaskRunResult) {
+func RecordLoopIteration(ls *v1.LoopState, iteration int, taskRunName string, status v1.LoopIterationStatus, results []v1.TaskRunResult) {
 	iterState := v1.LoopIterationState{
 		Iteration:   iteration,
 		TaskRunName: taskRunName,
@@ -186,6 +214,7 @@ func AdvanceLoopIteration(ls *v1.LoopState, untilExpr string) (bool, error) {
 
 	// Check max iterations
 	if ls.CurrentIteration >= ls.MaxIterations {
+		ls.TerminationReason = v1.LoopTerminationReasonMaxIterationsReached
 		return false, nil
 	}
 
@@ -197,6 +226,7 @@ func AdvanceLoopIteration(ls *v1.LoopState, untilExpr string) (bool, error) {
 		}
 		if converged {
 			ls.Converged = true
+			ls.TerminationReason = v1.LoopTerminationReasonConverged
 			return false, nil
 		}
 	}

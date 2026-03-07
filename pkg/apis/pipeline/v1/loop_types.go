@@ -19,9 +19,35 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/google/cel-go/cel"
 	"github.com/tektoncd/pipeline/pkg/apis/config"
 	"knative.dev/pkg/apis"
+)
+
+// LoopTerminationReason describes why a loop stopped.
+type LoopTerminationReason string
+
+const (
+	// LoopTerminationReasonConverged means the Until CEL condition evaluated to true.
+	LoopTerminationReasonConverged LoopTerminationReason = "Converged"
+	// LoopTerminationReasonMaxIterationsReached means the loop hit MaxIterations without converging.
+	LoopTerminationReasonMaxIterationsReached LoopTerminationReason = "MaxIterationsReached"
+	// LoopTerminationReasonIterationFailed means a TaskRun within the loop failed.
+	LoopTerminationReasonIterationFailed LoopTerminationReason = "IterationFailed"
+)
+
+// LoopIterationStatus is a typed enum for the status of a single loop iteration.
+type LoopIterationStatus string
+
+const (
+	// LoopIterationStatusRunning means the iteration's TaskRun is still executing.
+	LoopIterationStatusRunning LoopIterationStatus = "Running"
+	// LoopIterationStatusSucceeded means the iteration's TaskRun completed successfully.
+	LoopIterationStatusSucceeded LoopIterationStatus = "Succeeded"
+	// LoopIterationStatusFailed means the iteration's TaskRun failed.
+	LoopIterationStatusFailed LoopIterationStatus = "Failed"
 )
 
 // Loop is used to iterate a PipelineTask until a condition is met.
@@ -61,7 +87,7 @@ type LoopIterationState struct {
 	TaskRunName string `json:"taskRunName,omitempty"`
 
 	// Status is the status of this iteration: Running, Succeeded, Failed.
-	Status string `json:"status,omitempty"`
+	Status LoopIterationStatus `json:"status,omitempty"`
 
 	// Results are the results from this iteration's TaskRun.
 	// +optional
@@ -81,6 +107,10 @@ type LoopState struct {
 
 	// Converged is true if the Until condition evaluated to true.
 	Converged bool `json:"converged,omitempty"`
+
+	// TerminationReason describes why the loop stopped: Converged, MaxIterationsReached, or IterationFailed.
+	// +optional
+	TerminationReason LoopTerminationReason `json:"terminationReason,omitempty"`
 
 	// Iterations is the history of all iteration states.
 	// +optional
@@ -124,8 +154,16 @@ func (pt *PipelineTask) validateLoop(ctx context.Context) (errs *apis.FieldError
 		errs = errs.Also(apis.ErrMultipleOneOf("loop", "matrix"))
 	}
 
-	// Validate Until is a non-empty string if provided (CEL validation happens at runtime)
-	// No-op for now — CEL parsing can be added later
+	// Validate Until CEL expression at admission time.
+	// Skip validation if the expression contains $( placeholders (e.g. $(loop.iteration),
+	// $(loop.previousResult.*)) since those are not valid CEL and will be substituted at runtime.
+	if pt.Loop.Until != "" && !strings.Contains(pt.Loop.Until, "$(") {
+		env, _ := cel.NewEnv()
+		_, iss := env.Compile(pt.Loop.Until)
+		if iss.Err() != nil {
+			errs = errs.Also(apis.ErrInvalidValue(pt.Loop.Until, "loop.until", iss.Err().Error()))
+		}
+	}
 
 	// Validate IterationParams don't duplicate regular Params
 	if len(pt.Loop.IterationParams) > 0 {

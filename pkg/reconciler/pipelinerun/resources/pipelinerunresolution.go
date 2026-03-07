@@ -281,6 +281,7 @@ func (t ResolvedPipelineTask) isSuccessful() bool {
 
 // isFailure returns true only if the run has failed (if it has ConditionSucceeded = False).
 // If the PipelineTask has a Matrix, isFailure returns true if any run has failed and all other runs are done.
+// If the PipelineTask has a Loop, isFailure returns true only when the loop is complete and any iteration TaskRun failed.
 func (t ResolvedPipelineTask) isFailure() bool {
 	var isDone bool
 	if t.IsChildPipeline() {
@@ -303,6 +304,22 @@ func (t ResolvedPipelineTask) isFailure() bool {
 			isDone = isDone && run.IsDone()
 		}
 		return t.haveAnyRunsFailed() && isDone
+	}
+
+	// For looped tasks, the task is only a failure when the loop is complete
+	// AND at least one iteration TaskRun failed. Without the LoopComplete check,
+	// the DAG would consider the task as failed after a single iteration fails,
+	// even though the loop hasn't finished processing.
+	if t.PipelineTask.IsLooped() {
+		if !t.LoopComplete {
+			return false
+		}
+		for _, taskRun := range t.TaskRuns {
+			if !taskRun.IsSuccessful() && taskRun.IsDone() {
+				return true
+			}
+		}
+		return false
 	}
 
 	if len(t.TaskRuns) == 0 {
