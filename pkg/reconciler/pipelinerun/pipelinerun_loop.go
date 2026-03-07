@@ -157,8 +157,14 @@ func (c *Reconciler) handleLoopedTask(
 		// Override the TaskRun name for this iteration
 		rpt.TaskRunNames = []string{currentTaskRunName}
 
+		// Temporarily override params with merged iteration params so
+		// $(loop.iteration) and $(loop.previousResult.<name>) reach the TaskRun
+		originalParams := rpt.PipelineTask.Params
+		rpt.PipelineTask.Params = allParams
+
 		// Create the TaskRun
 		taskRuns, err := c.createTaskRuns(ctx, rpt, pr, facts)
+		rpt.PipelineTask.Params = originalParams
 		if err != nil {
 			recorder.Eventf(pr, corev1.EventTypeWarning, "LoopTaskRunCreationFailed",
 				"Failed to create TaskRun for loop iteration %d of %q: %v",
@@ -212,7 +218,12 @@ func (c *Reconciler) handleLoopedTask(
 				allParams = append(allParams, appliedIterParams...)
 			}
 			rpt.TaskRunNames = []string{nextTaskRunName}
+			// Temporarily override params with merged iteration params so
+			// $(loop.iteration) and $(loop.previousResult.<name>) reach the TaskRun
+			originalParams := rpt.PipelineTask.Params
+			rpt.PipelineTask.Params = allParams
 			taskRuns, err := c.createTaskRuns(ctx, rpt, pr, facts)
+			rpt.PipelineTask.Params = originalParams
 			if err != nil {
 				recorder.Eventf(pr, corev1.EventTypeWarning, "LoopTaskRunCreationFailed",
 					"Failed to create TaskRun for loop iteration %d of %q: %v",

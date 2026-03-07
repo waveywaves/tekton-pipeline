@@ -104,6 +104,9 @@ func (pt *PipelineTask) validateLoop(ctx context.Context) (errs *apis.FieldError
 		return nil
 	}
 
+	// Loop is an alpha feature — require alpha API fields to be enabled
+	errs = errs.Also(config.ValidateEnabledAPIFields(ctx, "loop", config.AlphaAPIFields))
+
 	// MaxIterations must be positive
 	if pt.Loop.MaxIterations <= 0 {
 		errs = errs.Also(apis.ErrInvalidValue(pt.Loop.MaxIterations, "loop.maxIterations",
