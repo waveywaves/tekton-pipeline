@@ -1,0 +1,53 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: loop-until-demo
+spec:
+  tasks:
+    - name: train
+      taskSpec:
+        params:
+          - name: iteration
+            type: string
+        results:
+          - name: fitness
+            type: string
+          - name: converged
+            type: string
+        steps:
+          - name: simulate-training
+            image: mirror.gcr.io/alpine
+            script: |
+              ITERATION=$(params.iteration)
+              # Simulate increasing fitness score per iteration
+              FITNESS=$((ITERATION * 100 + 50))
+              CONVERGED="false"
+              if [ "$FITNESS" -gt 400 ]; then
+                CONVERGED="true"
+              fi
+              echo "Iteration $ITERATION: fitness=$FITNESS converged=$CONVERGED"
+              echo -n "$FITNESS" | tee $(results.fitness.path)
+              echo -n "$CONVERGED" | tee $(results.converged.path)
+      loop:
+        maxIterations: 100
+        until: "'$(loop.previousResult.converged)' == 'true'"
+        iterationParams:
+          - name: iteration
+            value: "$(loop.iteration)"
+    - name: report
+      runAfter:
+        - train
+      taskSpec:
+        steps:
+          - name: done
+            image: mirror.gcr.io/alpine
+            script: |
+              echo "Training converged! Loop terminated early via until condition."
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: loop-until-demo-run-
+spec:
+  pipelineRef:
+    name: loop-until-demo

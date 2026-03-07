@@ -1,0 +1,45 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: loop-demo
+spec:
+  tasks:
+    - name: count
+      taskSpec:
+        params:
+          - name: current-iteration
+            type: string
+        results:
+          - name: iteration
+            type: string
+          - name: message
+            type: string
+        steps:
+          - name: echo
+            image: mirror.gcr.io/alpine
+            script: |
+              echo "Iteration: $(params.current-iteration)"
+              echo -n "$(params.current-iteration)" | tee $(results.iteration.path)
+              echo -n "Hello from iteration $(params.current-iteration)" | tee $(results.message.path)
+      loop:
+        maxIterations: 5
+        iterationParams:
+          - name: current-iteration
+            value: "$(loop.iteration)"
+    - name: summary
+      runAfter:
+        - count
+      taskSpec:
+        steps:
+          - name: report
+            image: mirror.gcr.io/alpine
+            script: |
+              echo "Loop completed! The count task ran 5 iterations."
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: loop-demo-run-
+spec:
+  pipelineRef:
+    name: loop-demo
