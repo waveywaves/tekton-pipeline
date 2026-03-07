@@ -395,12 +395,20 @@ func (t *ResolvedPipelineTask) getChildRefForTaskRun(taskRun *v1.TaskRun) v1.Chi
 
 // getNextTasks returns a list of pipeline tasks which should be executed next i.e.
 // a list of tasks from candidateTasks which aren't yet indicated in state to be running and
-// a list of cancelled/failed tasks from candidateTasks which haven't exhausted their retries
+// a list of cancelled/failed tasks from candidateTasks which haven't exhausted their retries.
+// For looped tasks, it also returns tasks whose loop is not complete and whose current
+// iteration is not in progress (i.e., they need the next iteration to be created).
 func (state PipelineRunState) getNextTasks(candidateTasks sets.String) []*ResolvedPipelineTask {
 	tasks := []*ResolvedPipelineTask{}
 	for _, t := range state {
 		if _, ok := candidateTasks[t.PipelineTask.Name]; ok {
 			if len(t.TaskRuns) == 0 && len(t.CustomRuns) == 0 && len(t.ChildPipelineRuns) == 0 {
+				tasks = append(tasks, t)
+				continue
+			}
+			// For looped tasks: re-enqueue the task if the loop is not complete
+			// and no iteration TaskRun is currently running.
+			if t.PipelineTask.IsLooped() && !t.LoopComplete && !t.isLoopIterationInProgress() {
 				tasks = append(tasks, t)
 			}
 		}

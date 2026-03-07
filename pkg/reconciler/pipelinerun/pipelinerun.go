@@ -714,6 +714,16 @@ func (c *Reconciler) reconcile(ctx context.Context, pr *v1.PipelineRun, getPipel
 		pipelineRunFacts.TimeoutsState.PipelineTimeout = &pipelineTimeout
 	}
 
+	// Set LoopComplete on any looped tasks based on the persisted LoopState
+	for _, rpt := range pipelineRunFacts.State {
+		if rpt.PipelineTask.IsLooped() {
+			ls := resources.GetLoopState(pr, rpt.PipelineTask.Name)
+			if resources.IsLoopComplete(ls) {
+				rpt.LoopComplete = true
+			}
+		}
+	}
+
 	for i, rpt := range pipelineRunFacts.State {
 		// Task?
 		if !rpt.IsCustomTask() && !rpt.IsChildPipeline() {
@@ -998,6 +1008,12 @@ func (c *Reconciler) runNextSchedulableTask(ctx context.Context, pr *v1.Pipeline
 		if rpt.PipelineTask.IsLooped() {
 			if err := c.handleLoopedTask(ctx, rpt, pr, pipelineRunFacts); err != nil {
 				return err
+			}
+			// Update LoopComplete after handleLoopedTask, as the loop may have
+			// become complete during this reconciliation.
+			ls := resources.GetLoopState(pr, rpt.PipelineTask.Name)
+			if resources.IsLoopComplete(ls) {
+				rpt.LoopComplete = true
 			}
 			continue
 		}

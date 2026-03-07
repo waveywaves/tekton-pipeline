@@ -85,6 +85,12 @@ type ResolvedPipelineTask struct {
 
 	// EvaluatedCEL is used to store the results of evaluated CEL expression
 	EvaluatedCEL map[string]bool
+
+	// LoopComplete is set to true by the reconciler when a looped task's
+	// iteration cycle is finished (converged or max iterations reached).
+	// This prevents the DAG from considering the task as "successful"
+	// after a single iteration's TaskRun completes.
+	LoopComplete bool
 }
 
 // EvaluateCEL evaluate the CEL expressions, and store the evaluated results in EvaluatedCEL
@@ -219,6 +225,7 @@ func (t ResolvedPipelineTask) isLoopIterationInProgress() bool {
 // isSuccessful returns true only if the run has completed successfully
 // If the PipelineTask has a Matrix, isSuccessful returns true if all runs have completed successfully
 // If the PipelineTask has a Loop, isSuccessful returns true only when the loop is complete (converged or max iterations)
+// and all iteration TaskRuns have succeeded.
 func (t ResolvedPipelineTask) isSuccessful() bool {
 	if t.IsChildPipeline() {
 		if len(t.ChildPipelineRuns) == 0 {
@@ -240,6 +247,21 @@ func (t ResolvedPipelineTask) isSuccessful() bool {
 		}
 		for _, run := range t.CustomRuns {
 			if !run.IsSuccessful() {
+				return false
+			}
+		}
+		return true
+	}
+
+	// For looped tasks, the task is only successful when the loop is complete
+	// AND all iteration TaskRuns have succeeded. Without the LoopComplete check,
+	// the DAG would consider the task done after the first iteration succeeds.
+	if t.PipelineTask.IsLooped() {
+		if !t.LoopComplete || len(t.TaskRuns) == 0 {
+			return false
+		}
+		for _, taskRun := range t.TaskRuns {
+			if !taskRun.IsSuccessful() {
 				return false
 			}
 		}
