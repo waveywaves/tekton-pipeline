@@ -124,7 +124,7 @@ func EvaluateLoopUntilCondition(untilExpr string, iteration int, previousResults
 	expr := strings.ReplaceAll(untilExpr, "$(loop.iteration)", strconv.Itoa(iteration))
 	for name, result := range previousResults {
 		placeholder := fmt.Sprintf("$(loop.previousResult.%s)", name)
-		expr = strings.ReplaceAll(expr, placeholder, fmt.Sprintf("'%s'", result))
+		expr = strings.ReplaceAll(expr, placeholder, result)
 	}
 
 	// Create CEL environment and evaluate

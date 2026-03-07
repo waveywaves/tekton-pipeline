@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: buildpacks-tekton-hub
+spec:
+  pipelineRef:
+    resolver: hub
+    params:
+      - name: type
+        value: tekton
+      - name: catalog
+        value: Tekton
+      - name: kind
+        value: pipeline
+      - name: name
+        value: buildpacks
+      - name: version
+        value: "0.1"
+  params:
+    - name: APP_IMAGE
+      value: my-registry/my-app:latest
+  workspaces:
+    - name: source-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi

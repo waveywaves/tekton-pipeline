@@ -1,0 +1,53 @@
+---
+# Test 1: PipelineRun with cache=always (should override default)
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: test-cache-always-override
+spec:
+  pipelineRef:
+    resolver: cluster
+    params:
+    - name: kind
+      value: pipeline
+    - name: name
+      value: test-cache-pipeline
+    - name: namespace
+      value: default
+    - name: cache
+      value: always    # ← Override: ALWAYS cache even though cluster default is auto/never
+---
+# Test 2: PipelineRun with cache=never (should prevent caching)
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: test-cache-never-override
+spec:
+  pipelineRef:
+    resolver: cluster
+    params:
+    - name: kind
+      value: pipeline
+    - name: name
+      value: test-cache-pipeline
+    - name: namespace
+      value: default
+    - name: cache
+      value: never     # ← Override: NEVER cache
+---
+# Test 3: PipelineRun without cache param (should use ConfigMap default)
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: test-cache-default
+spec:
+  pipelineRef:
+    resolver: cluster
+    params:
+    - name: kind
+      value: pipeline
+    - name: name
+      value: test-cache-pipeline
+    - name: namespace
+      value: default
+    # No cache parameter - should use ConfigMap default

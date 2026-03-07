@@ -1,0 +1,96 @@
+# Performance optimization patch for Tekton Pipelines Controller
+# Apply with: kubectl apply -f config/controller-performance-patch.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-leader-election-controller
+  namespace: tekton-pipelines
+data:
+  # Optimized for HA setup with better work distribution
+  lease-duration: "30s"  # Reduced from 60s for faster failover
+  renew-deadline: "20s"  # Reduced from 40s
+  retry-period: "5s"     # Reduced from 10s
+  buckets: "5"           # Increased from 1 to distribute load across replicas
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tekton-pipelines-controller
+  namespace: tekton-pipelines
+spec:
+  replicas: 3  # Increased for HA
+  template:
+    spec:
+      containers:
+      - name: tekton-pipelines-controller
+        env:
+        - name: THREADS_PER_CONTROLLER
+          value: "4"  # Increased from default 2
+        - name: KUBERNETES_CLIENT_QPS
+          value: "100"  # Explicit QPS setting
+        - name: KUBERNETES_CLIENT_BURST
+          value: "200"  # Explicit burst setting
+        resources:
+          requests:
+            cpu: "500m"     # Increased from default
+            memory: "512Mi"  # Increased from default
+          limits:
+            cpu: "2000m"    # Allow bursting
+            memory: "2Gi"   # Allow for schema validation overhead
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: tekton-controller-hpa
+  namespace: tekton-pipelines
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tekton-pipelines-controller
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feature-flags
+  namespace: tekton-pipelines
+data:
+  # Performance optimizations for high-concurrency environments
+  coschedule: "pipelineruns"  # Co-schedule all tasks in a pipeline
+  disable-creds-init: "false"  # Keep if using registry auth
+  await-sidecar-readiness: "false"  # Faster startup if not using sidecars
+  running-in-environment-with-injected-sidecars: "false"  # Set true if using Istio
+  results-from: "sidecar-logs"  # More efficient than termination-message
+  enable-provenance-in-status: "false"  # Reduce status payload if not needed

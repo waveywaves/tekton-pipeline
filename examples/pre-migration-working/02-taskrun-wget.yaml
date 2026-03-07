@@ -1,0 +1,28 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: wget-from-hub
+spec:
+  taskRef:
+    resolver: hub
+    params:
+      - name: catalog
+        value: Tekton
+      - name: kind
+        value: task
+      - name: name
+        value: wget
+      - name: version
+        value: "0.1"
+  params:
+    - name: url
+      value: https://tekton.dev
+    - name: diroptions
+      value:
+        - "-P"
+    - name: options
+      value:
+        - "--spider"
+  workspaces:
+    - name: wget-workspace
+      emptyDir: {}

@@ -1,0 +1,19 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: git-api-demo-pr
+spec:
+  pipelineRef:
+    resolver: git
+    params:
+    - name: org
+      value: srivickynesh
+    - name: repo
+      value: private-git
+    - name: revision
+      value: main
+    - name: pathInRepo
+      value: pipeline/simple/0.1/simple.yaml
+  params:
+  - name: name
+    value: Ranni

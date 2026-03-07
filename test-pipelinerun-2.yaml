@@ -1,0 +1,17 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: test-cache-run-2
+  namespace: default
+spec:
+  pipelineRef:
+    resolver: cluster
+    params:
+      - name: kind
+        value: pipeline
+      - name: name
+        value: test-cache-pipeline
+      - name: namespace
+        value: default
+      - name: cache
+        value: always

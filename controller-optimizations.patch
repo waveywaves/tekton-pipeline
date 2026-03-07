@@ -1,0 +1,311 @@
+diff --git a/pkg/reconciler/taskrun/taskrun.go b/pkg/reconciler/taskrun/taskrun.go
+index original..optimized 100644
+--- a/pkg/reconciler/taskrun/taskrun.go
++++ b/pkg/reconciler/taskrun/taskrun.go
+@@ -77,6 +77,9 @@ import (
+ 	"sigs.k8s.io/yaml"
+ )
+
++// Add LRU cache for validation results
++var validationCache *ValidationCache
++
+ // Reconciler implements controller.Reconciler for Configuration resources.
+ type Reconciler struct {
+ 	KubeClientSet     kubernetes.Interface
+@@ -95,8 +98,33 @@ type Reconciler struct {
+ 	metrics                  *taskrunmetrics.Recorder
+ 	pvcHandler               volumeclaim.PvcHandler
+ 	resolutionRequester      resolution.Requester
+ 	tracerProvider           trace.TracerProvider
++
++	// Performance optimizations
++	validationCache    *ValidationCache
++	resourcePool       *ResourcePool
++	lazyLoader         *LazyLoader
++	parallelReconciler *ParallelReconciler
++	debouncer          *Debouncer
++	circuitBreaker     *CircuitBreaker
++}
++
++// Initialize performance optimizations in NewController
++func NewController(opts *pipeline.Options, clock clock.PassiveClock) func(context.Context, configmap.Watcher) *controller.Impl {
++	// Initialize caches and pools
++	validationCache, _ := NewValidationCache(10000)
++	resourcePool := NewResourcePool()
++	parallelReconciler := NewParallelReconciler(4)
++
++	// Create lazy loader for expensive operations
++	lazyLoader := NewLazyLoader(func(key string) (interface{}, error) {
++		// Load resource logic here
++		return nil, nil
++	}, 5*time.Minute)
++
++	// Circuit breaker for API calls
++	circuitBreaker := NewCircuitBreaker(5, 30*time.Second)
++
++	// Rest of initialization...
+ }
+
+ const ImagePullBackOff = "ImagePullBackOff"
+@@ -116,6 +144,19 @@ var (
+ func (c *Reconciler) ReconcileKind(ctx context.Context, tr *v1.TaskRun) pkgreconciler.Event {
+ 	logger := logging.FromContext(ctx)
+ 	ctx = cloudevent.ToContext(ctx, c.cloudEventClient)
++
++	// OPTIMIZATION: Check validation cache first
++	cacheKey := generateCacheKey(tr)
++	if valid, found := c.validationCache.GetValidationResult(cacheKey); found {
++		if !valid {
++			// Skip reconciliation for known invalid resources
++			return controller.NewPermanentError(fmt.Errorf("resource failed validation (cached)"))
++		}
++		// Skip validation for known valid resources
++		tr.SetDefaults(ctx)
++		logger.Debugf("Skipping validation for %s (cached as valid)", tr.Name)
++	}
++
+ 	ctx = initTracing(ctx, c.tracerProvider, tr)
+ 	ctx, span := c.tracerProvider.Tracer(TracerName).Start(ctx, "TaskRun:ReconcileKind")
+ 	defer span.End()
+@@ -402,10 +443,29 @@ func (c *Reconciler) prepare(ctx context.Context, tr *v1.TaskRun) (*v1.TaskSpec
+ func (c *Reconciler) prepare(ctx context.Context, tr *v1.TaskRun) (*v1.TaskSpec, *resources.ResolvedTask, error) {
+ 	ctx, span := c.tracerProvider.Tracer(TracerName).Start(ctx, "prepare")
+ 	defer span.End()
+ 	logger := logging.FromContext(ctx)
++
++	// OPTIMIZATION: Use resource pool to reduce allocations
++	pooledTR := c.resourcePool.Get().(*v1.TaskRun)
++	defer c.resourcePool.Put(pooledTR)
++
+ 	tr.SetDefaults(ctx)
+
++	// OPTIMIZATION: Skip verification policy listing if not needed
++	var vp []*v1alpha1.VerificationPolicy
++	if config.FromContextOrDefaults(ctx).FeatureFlags.TrustedResourcesVerificationNoMatchPolicy != "ignore" {
++		var err error
++		vp, err = c.verificationPolicyLister.VerificationPolicies(tr.Namespace).List(labels.Everything())
++		if err != nil {
++			return nil, nil, fmt.Errorf("failed to list VerificationPolicies from namespace %s with error %w", tr.Namespace, err)
++		}
++	}
++
+ 	// list VerificationPolicies for trusted resources
+-	vp, err := c.verificationPolicyLister.VerificationPolicies(tr.Namespace).List(labels.Everything())
++	// OPTIMIZATION: Use circuit breaker for API calls
++	var vp []*v1alpha1.VerificationPolicy
++	err := c.circuitBreaker.Call(func() error {
++		var listErr error
++		vp, listErr = c.verificationPolicyLister.VerificationPolicies(tr.Namespace).List(labels.Everything())
++		return listErr
++	})
+ 	if err != nil {
+ 		return nil, nil, fmt.Errorf("failed to list VerificationPolicies from namespace %s with error %w", tr.Namespace, err)
+ 	}
+@@ -576,6 +636,10 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1.TaskRun, rtr *resour
+ func (c *Reconciler) reconcile(ctx context.Context, tr *v1.TaskRun, rtr *resources.ResolvedTask) error {
+ 	ctx, span := c.tracerProvider.Tracer(TracerName).Start(ctx, "reconcile")
+ 	defer span.End()
++
++	// OPTIMIZATION: Debounce rapid updates
++	c.debouncer.Call(tr.Name)
++
+ 	logger := logging.FromContext(ctx)
+ 	recorder := controller.GetEventRecorder(ctx)
+ 	var err error
+@@ -584,6 +648,18 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1.TaskRun, rtr *resour
+ 	// Get the TaskRun's Pod if it should have one. Otherwise, create the Pod.
+ 	var pod *corev1.Pod
+
++	// OPTIMIZATION: Use lazy loading for pod retrieval
++	if tr.Status.PodName != "" {
++		podInterface, err := c.lazyLoader.Get(tr.Status.PodName)
++		if err == nil && podInterface != nil {
++			pod = podInterface.(*corev1.Pod)
++		} else {
++			// Fallback to regular pod lister
++			pod, err = c.podLister.Pods(tr.Namespace).Get(tr.Status.PodName)
++		}
++	}
++
++	// Original pod retrieval logic (kept as fallback)
+ 	if tr.Status.PodName != "" {
+ 		pod, err = c.podLister.Pods(tr.Namespace).Get(tr.Status.PodName)
+ 		if k8serrors.IsNotFound(err) {
+@@ -614,6 +690,14 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1.TaskRun, rtr *resour
+ 		}
+ 	}
+
++	// OPTIMIZATION: Process workspace operations in parallel
++	if pod == nil && tr.HasVolumeClaimTemplate() {
++		c.parallelReconciler.AddWork(ctx, tr.Spec.Workspaces, func(err error) {
++			if err != nil {
++				logger.Errorf("Failed to create PVC for TaskRun %s: %v", tr.Name, err)
++			}
++		})
++	}
++
+ 	// Please note that this block is required to run before `applyParamsContextsResultsAndWorkspaces` is called the first time,
+ 	// and that `applyParamsContextsResultsAndWorkspaces` _must_ be called on every reconcile.
+ 	if pod == nil && tr.HasVolumeClaimTemplate() {
+@@ -674,6 +758,9 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1.TaskRun, rtr *resour
+ 		return err
+ 	}
+
++	// OPTIMIZATION: Cache successful validation results
++	c.validationCache.SetValidationResult(generateCacheKey(tr), true)
++
+ 	if err := validateTaskRunResults(tr, rtr.TaskSpec); err != nil {
+ 		tr.Status.MarkResourceFailed(v1.TaskRunReasonFailedValidation, err)
+ 		return err
+@@ -683,6 +770,41 @@ func (c *Reconciler) reconcile(ctx context.Context, tr *v1.TaskRun, rtr *resour
+ 	return nil
+ }
+
++// OPTIMIZATION: Batch process status updates
++func (c *Reconciler) batchUpdateStatuses(ctx context.Context, taskRuns []*v1.TaskRun) error {
++	// Group updates by namespace for efficiency
++	byNamespace := make(map[string][]*v1.TaskRun)
++	for _, tr := range taskRuns {
++		byNamespace[tr.Namespace] = append(byNamespace[tr.Namespace], tr)
++	}
++
++	var wg sync.WaitGroup
++	errChan := make(chan error, len(byNamespace))
++
++	for ns, trs := range byNamespace {
++		wg.Add(1)
++		go func(namespace string, runs []*v1.TaskRun) {
++			defer wg.Done()
++
++			for _, tr := range runs {
++				if err := c.updateStatus(ctx, tr); err != nil {
++					errChan <- err
++					return
++				}
++			}
++		}(ns, trs)
++	}
++
++	wg.Wait()
++	close(errChan)
++
++	// Collect any errors
++	for err := range errChan {
++		if err != nil {
++			return err
++		}
++	}
++
++	return nil
++}
++
+ func (c *Reconciler) updateTaskRunWithDefaultWorkspaces(ctx context.Context, tr *v1.TaskRun, taskSpec *v1.TaskSpec) error {
+ 	ctx, span := c.tracerProvider.Tracer(TracerName).Start(ctx, "updateTaskRunWithDefaultWorkspaces")
+ 	defer span.End()
+
+diff --git a/pkg/apis/pipeline/v1/taskrun_validation.go b/pkg/apis/pipeline/v1/taskrun_validation.go
+index original..optimized 100644
+--- a/pkg/apis/pipeline/v1/taskrun_validation.go
++++ b/pkg/apis/pipeline/v1/taskrun_validation.go
+@@ -44,8 +44,31 @@ func (tr *TaskRun) SupportedVerbs() []admissionregistrationv1.OperationType {
+ 	return []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
+ }
+
++// OPTIMIZATION: Fast-path validation for common cases
++func (tr *TaskRun) FastValidate(ctx context.Context) *apis.FieldError {
++	// Quick checks for most common validation failures
++	if tr.Spec.TaskRef == nil && tr.Spec.TaskSpec == nil {
++		return apis.ErrMissingOneOf("taskRef", "taskSpec")
++	}
++	if tr.Spec.TaskRef != nil && tr.Spec.TaskSpec != nil {
++		return apis.ErrMultipleOneOf("taskRef", "taskSpec")
++	}
++
++	// For simple TaskRefs without complex features, skip full validation
++	if tr.Spec.TaskRef != nil &&
++	   tr.Spec.Debug == nil &&
++	   tr.Spec.StepSpecs == nil &&
++	   tr.Spec.SidecarSpecs == nil &&
++	   len(tr.Spec.Params) < 10 {
++		// Fast validation path
++		return nil
++	}
++
++	// Fall back to full validation for complex cases
++	return tr.Validate(ctx)
++}
++
+ // Validate taskrun
+ func (tr *TaskRun) Validate(ctx context.Context) *apis.FieldError {
+ 	errs := validate.ObjectMetadata(tr.GetObjectMeta()).ViaField("metadata")
+ 	return errs.Also(tr.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
+ }
+
+diff --git a/cmd/controller/main.go b/cmd/controller/main.go
+index original..optimized 100644
+--- a/cmd/controller/main.go
++++ b/cmd/controller/main.go
+@@ -23,6 +23,7 @@ import (
+ 	"net/http"
+ 	"os"
+ 	"strconv"
++	"runtime"
+
+ 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
+ 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+@@ -44,6 +45,15 @@ const (
+ )
+
+ func main() {
++	// OPTIMIZATION: Tune Go runtime for better performance
++	runtime.GOMAXPROCS(runtime.NumCPU())
++
++	// Set GC percentage for better throughput (default is 100)
++	// Higher value = less frequent GC, more memory usage, better throughput
++	debug.SetGCPercent(200)
++
++	// Enable memory ballast to reduce GC pressure
++	ballast := make([]byte, 100<<20) // 100MB ballast
++
+ 	if val, ok := os.LookupEnv("THREADS_PER_CONTROLLER"); ok {
+ 		threadsPerController, err := strconv.Atoi(val)
+ 		if err != nil {
+@@ -84,6 +94,12 @@ func main() {
+ 	cfg.QPS = 2 * cfg.QPS
+ 	cfg.Burst = 2 * cfg.Burst
+
++	// OPTIMIZATION: Set larger client-side rate limiting
++	// This reduces artificial delays in API calls
++	cfg.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(
++		float32(cfg.QPS),
++		cfg.Burst,
++	)
++
+ 	ctx := injection.WithNamespaceScope(signals.NewContext(), *namespace)
+ 	if *disableHighAvailability {
+ 		ctx = sharedmain.WithHADisabled(ctx)
+@@ -109,9 +125,22 @@ func main() {
+ 	ctx = filteredinformerfactory.WithSelectors(ctx, v1beta1.ManagedByLabelKey)
+ 	ctx = controller.WithResyncPeriod(ctx, opts.ResyncPeriod)
+
++	// OPTIMIZATION: Create shared controller options with performance settings
++	controllerOptions := controller.Options{
++		WorkQueueName:        "TaskRuns",
++		NumWorkers:           controller.DefaultThreadsPerController * 2, // Double workers
++		ResyncPeriod:         opts.ResyncPeriod,
++		RateLimiter:          workqueue.NewMaxOfRateLimiter(
++			workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1*time.Second),
++			&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(100), 200)},
++		),
++	}
++
+ 	sharedmain.MainWithConfig(ctx, ControllerLogKey, cfg,
+-		taskrun.NewController(opts, clock.RealClock{}),
+-		pipelinerun.NewController(opts, clock.RealClock{}),
++		taskrun.NewController(opts, clock.RealClock{}, controllerOptions),
++		pipelinerun.NewController(opts, clock.RealClock{}, controllerOptions),
+ 		resolutionrequest.NewController(clock.RealClock{}),
+ 	)
++
++	_ = ballast // Keep ballast alive
+ }

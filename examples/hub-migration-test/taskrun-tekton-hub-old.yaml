@@ -1,0 +1,26 @@
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: git-clone-tekton-hub
+spec:
+  taskRef:
+    resolver: hub
+    params:
+      - name: type
+        value: tekton
+      - name: catalog
+        value: Tekton
+      - name: kind
+        value: task
+      - name: name
+        value: git-clone
+      - name: version
+        value: "0.8"
+  params:
+    - name: url
+      value: https://github.com/tektoncd/pipeline.git
+    - name: revision
+      value: main
+  workspaces:
+    - name: output
+      emptyDir: {}

@@ -1,0 +1,94 @@
+--- a/cmd/controller/main.go
++++ b/cmd/controller/main.go
+@@ -20,9 +20,11 @@ package main
+ import (
+ 	"flag"
+ 	"log"
+ 	"net/http"
+ 	"os"
+ 	"strconv"
++	"time"
+
+ 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
+ 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+ 	"github.com/tektoncd/pipeline/pkg/reconciler/pipelinerun"
+@@ -44,10 +46,25 @@ const (
+ )
+
+ func main() {
++	// Performance tuning for HA setup
+ 	if val, ok := os.LookupEnv("THREADS_PER_CONTROLLER"); ok {
+ 		threadsPerController, err := strconv.Atoi(val)
+ 		if err != nil {
+ 			log.Fatalf("failed to parse value %q of THREADS_PER_CONTROLLER: %v\n", val, err)
+ 		}
+ 		controller.DefaultThreadsPerController = threadsPerController
++	} else {
++		// Default to 4 threads for better performance
++		controller.DefaultThreadsPerController = 4
++	}
++
++	// Allow configurable QPS/Burst via environment variables
++	var kubeAPIQPS float32 = 100
++	var kubeAPIBurst int = 200
++	if val, ok := os.LookupEnv("KUBERNETES_CLIENT_QPS"); ok {
++		if qps, err := strconv.ParseFloat(val, 32); err == nil {
++			kubeAPIQPS = float32(qps)
++		}
++	}
++	if val, ok := os.LookupEnv("KUBERNETES_CLIENT_BURST"); ok {
++		if burst, err := strconv.Atoi(val); err == nil {
++			kubeAPIBurst = burst
++		}
+ 	}
++
+ 	flag.IntVar(&controller.DefaultThreadsPerController, "threads-per-controller", controller.DefaultThreadsPerController, "Threads (goroutines) to create per controller")
+ 	namespace := flag.String("namespace", corev1.NamespaceAll, "Namespace to restrict informer to. Optional, defaults to all namespaces.")
+ 	disableHighAvailability := flag.Bool("disable-ha", false, "Whether to disable high-availability functionality for this component.  This flag will be deprecated "+
+@@ -72,14 +89,20 @@ func main() {
+ 	if err := opts.Images.Validate(); err != nil {
+ 		log.Fatal(err)
+ 	}
++
++	// Performance optimization for HA environments
+ 	if cfg.QPS == 0 {
+-		cfg.QPS = 2 * rest.DefaultQPS
++		cfg.QPS = kubeAPIQPS
++	} else if cfg.QPS < kubeAPIQPS {
++		cfg.QPS = kubeAPIQPS
+ 	}
+ 	if cfg.Burst == 0 {
+-		cfg.Burst = rest.DefaultBurst
++		cfg.Burst = kubeAPIBurst
++	} else if cfg.Burst < kubeAPIBurst {
++		cfg.Burst = kubeAPIBurst
+ 	}
+-	// FIXME(vdemeester): this is here to not break current behavior
+-	// multiply by 2, no of controllers being created
+-	cfg.QPS = 2 * cfg.QPS
+-	cfg.Burst = 2 * cfg.Burst
++
++	// Multiply by number of controllers (TaskRun + PipelineRun + ResolutionRequest)
++	cfg.QPS = 3 * cfg.QPS
++	cfg.Burst = 3 * cfg.Burst
++
++	// Set timeout for better resilience in HA
++	cfg.Timeout = 30 * time.Second
+
+ 	ctx := injection.WithNamespaceScope(signals.NewContext(), *namespace)
+ 	if *disableHighAvailability {
+@@ -108,7 +131,13 @@ func main() {
+
+ 	ctx = filteredinformerfactory.WithSelectors(ctx, v1beta1.ManagedByLabelKey)
+ 	ctx = controller.WithResyncPeriod(ctx, opts.ResyncPeriod)
+
++	// Log performance settings for debugging
++	log.Printf("Performance Configuration: Threads=%d, QPS=%.2f, Burst=%d, HA=%v",
++		controller.DefaultThreadsPerController,
++		cfg.QPS,
++		cfg.Burst,
++		!*disableHighAvailability)
++
+ 	sharedmain.MainWithConfig(ctx, ControllerLogKey, cfg,
+ 		taskrun.NewController(opts, clock.RealClock{}),
+ 		pipelinerun.NewController(opts, clock.RealClock{}),

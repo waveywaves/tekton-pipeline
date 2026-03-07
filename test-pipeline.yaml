@@ -1,0 +1,16 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: test-cache-pipeline
+  namespace: default
+spec:
+  tasks:
+    - name: hello
+      taskSpec:
+        steps:
+          - name: echo
+            image: alpine
+            script: |
+              #!/bin/sh
+              echo "Hello from cached pipeline!"
+              date

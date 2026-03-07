@@ -107,6 +107,28 @@ spec:
                                         description: Value
                                         x-kubernetes-preserve-unknown-fields: true
                                   x-kubernetes-list-type: atomic
+                      loop:
+                        description: Loop configuration for iterating this task
+                        type: object
+                        properties:
+                          maxIterations:
+                            description: Maximum number of iterations
+                            type: integer
+                          until:
+                            description: CEL expression for loop termination
+                            type: string
+                          iterationParams:
+                            description: Parameters with loop context substitution
+                            type: array
+                            items:
+                              description: Param
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  x-kubernetes-preserve-unknown-fields: true
+                            x-kubernetes-list-type: atomic
                             x-kubernetes-list-type: atomic
                           params:
                             description: Params
@@ -454,6 +476,28 @@ spec:
                                         description: Value
                                         x-kubernetes-preserve-unknown-fields: true
                                   x-kubernetes-list-type: atomic
+                      loop:
+                        description: Loop configuration for iterating this task
+                        type: object
+                        properties:
+                          maxIterations:
+                            description: Maximum number of iterations
+                            type: integer
+                          until:
+                            description: CEL expression for loop termination
+                            type: string
+                          iterationParams:
+                            description: Parameters with loop context substitution
+                            type: array
+                            items:
+                              description: Param
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  x-kubernetes-preserve-unknown-fields: true
+                            x-kubernetes-list-type: atomic
                             x-kubernetes-list-type: atomic
                           params:
                             description: Params
@@ -787,6 +831,28 @@ spec:
                                       value:
                                         x-kubernetes-preserve-unknown-fields: true
                                   x-kubernetes-list-type: atomic
+                      loop:
+                        description: Loop configuration for iterating this task
+                        type: object
+                        properties:
+                          maxIterations:
+                            description: Maximum number of iterations
+                            type: integer
+                          until:
+                            description: CEL expression for loop termination
+                            type: string
+                          iterationParams:
+                            description: Parameters with loop context substitution
+                            type: array
+                            items:
+                              description: Param
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  x-kubernetes-preserve-unknown-fields: true
+                            x-kubernetes-list-type: atomic
                             x-kubernetes-list-type: atomic
                           params:
                             description: |-
@@ -1126,6 +1192,28 @@ spec:
                                       value:
                                         x-kubernetes-preserve-unknown-fields: true
                                   x-kubernetes-list-type: atomic
+                      loop:
+                        description: Loop configuration for iterating this task
+                        type: object
+                        properties:
+                          maxIterations:
+                            description: Maximum number of iterations
+                            type: integer
+                          until:
+                            description: CEL expression for loop termination
+                            type: string
+                          iterationParams:
+                            description: Parameters with loop context substitution
+                            type: array
+                            items:
+                              description: Param
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                value:
+                                  x-kubernetes-preserve-unknown-fields: true
+                            x-kubernetes-list-type: atomic
                             x-kubernetes-list-type: atomic
                           params:
                             description: |-
