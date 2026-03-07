@@ -202,8 +202,23 @@ func (t ResolvedPipelineTask) getReason() string {
 	return ""
 }
 
+// isLoopIterationInProgress returns true if the task is looped and the current
+// iteration's TaskRun exists and is still running.
+func (t ResolvedPipelineTask) isLoopIterationInProgress() bool {
+	if !t.PipelineTask.IsLooped() {
+		return false
+	}
+	if len(t.TaskRuns) == 0 {
+		return false
+	}
+	// Check the latest TaskRun (current iteration)
+	latest := t.TaskRuns[len(t.TaskRuns)-1]
+	return !latest.IsDone()
+}
+
 // isSuccessful returns true only if the run has completed successfully
 // If the PipelineTask has a Matrix, isSuccessful returns true if all runs have completed successfully
+// If the PipelineTask has a Loop, isSuccessful returns true only when the loop is complete (converged or max iterations)
 func (t ResolvedPipelineTask) isSuccessful() bool {
 	if t.IsChildPipeline() {
 		if len(t.ChildPipelineRuns) == 0 {

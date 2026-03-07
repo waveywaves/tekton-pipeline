@@ -994,6 +994,14 @@ func (c *Reconciler) runNextSchedulableTask(ctx context.Context, pr *v1.Pipeline
 			}
 		}
 
+		// Handle looped tasks: manage iteration lifecycle
+		if rpt.PipelineTask.IsLooped() {
+			if err := c.handleLoopedTask(ctx, rpt, pr, pipelineRunFacts); err != nil {
+				return err
+			}
+			continue
+		}
+
 		switch {
 		case rpt.IsChildPipeline():
 			rpt.ChildPipelineRuns, err = c.createChildPipelineRuns(ctx, rpt, pr, pipelineRunFacts)
