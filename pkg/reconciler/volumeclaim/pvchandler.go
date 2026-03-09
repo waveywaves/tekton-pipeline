@@ -156,6 +156,14 @@ func (c *defaultPVCHandler) getPVCFromVolumeClaimTemplate(workspaceBinding v1.Wo
 	claim.Namespace = namespace
 	claim.OwnerReferences = []metav1.OwnerReference{ownerReference}
 
+	// Kubernetes protobuf round-trip can convert nil *string to ptr("") for StorageClassName.
+	// In Kubernetes, nil means "use cluster default StorageClass" while empty string means
+	// "no StorageClass" which disables dynamic provisioning and leaves PVCs stuck in Pending.
+	// Explicitly convert empty string back to nil to preserve the intended behavior.
+	if claim.Spec.StorageClassName != nil && *claim.Spec.StorageClassName == "" {
+		claim.Spec.StorageClassName = nil
+	}
+
 	return claim
 }
 

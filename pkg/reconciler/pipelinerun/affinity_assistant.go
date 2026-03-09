@@ -82,6 +82,12 @@ func (c *Reconciler) createOrUpdateAffinityAssistantsAndPVCs(ctx context.Context
 		} else if w.VolumeClaimTemplate != nil {
 			claimTemplate := w.VolumeClaimTemplate.DeepCopy()
 			claimTemplate.Name = volumeclaim.GeneratePVCNameFromWorkspaceBinding(w.VolumeClaimTemplate.Name, w, *kmeta.NewControllerRef(pr))
+			// Kubernetes protobuf round-trip can convert nil *string to ptr("") for StorageClassName.
+			// In Kubernetes, nil means "use cluster default StorageClass" while empty string means
+			// "no StorageClass" which disables dynamic provisioning. Convert empty string back to nil.
+			if claimTemplate.Spec.StorageClassName != nil && *claimTemplate.Spec.StorageClassName == "" {
+				claimTemplate.Spec.StorageClassName = nil
+			}
 			claimTemplates = append(claimTemplates, *claimTemplate)
 			claimTemplateToWorkspace[claimTemplate] = w
 		}

@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -442,5 +443,102 @@ func TestCreatePVCFromVolumeClaimTemplate_ConflictError(t *testing.T) {
 
 	if !strings.Contains(err.Error(), ErrPvcCreationFailedRetryable.Error()) {
 		t.Errorf("Expected retryable conflict error, got: %v", err)
+	}
+}
+
+// TestGetPVCFromVolumeClaimTemplate_NilStorageClassNamePreserved tests that a nil StorageClassName
+// stays nil after getPVCFromVolumeClaimTemplate, ensuring Kubernetes uses the cluster default StorageClass.
+func TestGetPVCFromVolumeClaimTemplate_NilStorageClassNamePreserved(t *testing.T) {
+	ws := v1.WorkspaceBinding{
+		Name: "test-ws",
+		VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+				},
+				// StorageClassName intentionally nil -- should use cluster default
+			},
+		},
+	}
+
+	ownerRef := metav1.OwnerReference{UID: types.UID("owner1")}
+	pvcHandler := defaultPVCHandler{fakek8s.NewSimpleClientset(), zap.NewExample().Sugar()}
+
+	claim := pvcHandler.getPVCFromVolumeClaimTemplate(ws, ownerRef, "ns")
+	if claim == nil {
+		t.Fatal("expected non-nil PVC claim")
+	}
+	if claim.Spec.StorageClassName != nil {
+		t.Errorf("expected nil StorageClassName, got %q", *claim.Spec.StorageClassName)
+	}
+}
+
+// TestGetPVCFromVolumeClaimTemplate_EmptyStringStorageClassNameConvertedToNil tests that an empty-string
+// StorageClassName is converted to nil. Kubernetes treats nil as "use cluster default StorageClass" but
+// empty string as "no StorageClass" which disables dynamic provisioning. Protobuf round-trips or API
+// server defaulting can introduce this empty string, so we defensively convert it back to nil.
+func TestGetPVCFromVolumeClaimTemplate_EmptyStringStorageClassNameConvertedToNil(t *testing.T) {
+	emptyStr := ""
+	ws := v1.WorkspaceBinding{
+		Name: "test-ws",
+		VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+				},
+				StorageClassName: &emptyStr,
+			},
+		},
+	}
+
+	ownerRef := metav1.OwnerReference{UID: types.UID("owner1")}
+	pvcHandler := defaultPVCHandler{fakek8s.NewSimpleClientset(), zap.NewExample().Sugar()}
+
+	claim := pvcHandler.getPVCFromVolumeClaimTemplate(ws, ownerRef, "ns")
+	if claim == nil {
+		t.Fatal("expected non-nil PVC claim")
+	}
+	if claim.Spec.StorageClassName != nil {
+		t.Errorf("expected nil StorageClassName (empty string should be converted to nil), got %q", *claim.Spec.StorageClassName)
+	}
+}
+
+// TestGetPVCFromVolumeClaimTemplate_ExplicitStorageClassNamePreserved tests that an explicitly-set
+// StorageClassName (non-empty) is preserved and not modified.
+func TestGetPVCFromVolumeClaimTemplate_ExplicitStorageClassNamePreserved(t *testing.T) {
+	scName := "my-storage-class"
+	ws := v1.WorkspaceBinding{
+		Name: "test-ws",
+		VolumeClaimTemplate: &corev1.PersistentVolumeClaim{
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+				},
+				StorageClassName: &scName,
+			},
+		},
+	}
+
+	ownerRef := metav1.OwnerReference{UID: types.UID("owner1")}
+	pvcHandler := defaultPVCHandler{fakek8s.NewSimpleClientset(), zap.NewExample().Sugar()}
+
+	claim := pvcHandler.getPVCFromVolumeClaimTemplate(ws, ownerRef, "ns")
+	if claim == nil {
+		t.Fatal("expected non-nil PVC claim")
+	}
+	if claim.Spec.StorageClassName == nil {
+		t.Fatal("expected non-nil StorageClassName, got nil")
+	}
+	if *claim.Spec.StorageClassName != scName {
+		t.Errorf("expected StorageClassName %q, got %q", scName, *claim.Spec.StorageClassName)
 	}
 }
