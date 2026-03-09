@@ -111,6 +111,10 @@ func TestParseMessageInvalidMessage(t *testing.T) {
 		desc:      "invalid JSON",
 		msg:       "invalid JSON",
 		wantError: "parsing message json",
+	}, {
+		desc:      "sensitive content not leaked in error",
+		msg:       `{"secret":"super-secret-password-value"}`,
+		wantError: "parsing message json",
 	}} {
 		t.Run(c.desc, func(t *testing.T) {
 			logger, _ := logging.NewLogger("", "status")
@@ -120,6 +124,10 @@ func TestParseMessageInvalidMessage(t *testing.T) {
 			}
 			if !strings.HasPrefix(err.Error(), c.wantError) {
 				t.Errorf("Expected different error: %s", c.wantError)
+			}
+			// Verify the raw message content is not included in the error to prevent secret leaks
+			if strings.Contains(err.Error(), c.msg) {
+				t.Errorf("Error message should not contain raw termination message content to avoid leaking secrets, got: %s", err.Error())
 			}
 		})
 	}

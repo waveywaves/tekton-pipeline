@@ -94,7 +94,7 @@ func main() {
 	builders := []credwriter.Writer{dockercreds.NewBuilder(), gitcreds.NewBuilder()}
 	for _, c := range builders {
 		if err := c.Write(entrypoint.CredsDir); err != nil {
-			log.Printf("Error initializing credentials: %s", err)
+			log.Print("Error initializing credentials")
 		}
 	}
 
@@ -154,7 +154,7 @@ func main() {
 	// Copy any creds injected by the controller into the $HOME directory of the current
 	// user so that they're discoverable by git / ssh.
 	if err := credwriter.CopyCredsToHome(credwriter.CredsInitCredentials); err != nil {
-		log.Printf("non-fatal error copying credentials: %q", err)
+		log.Print("non-fatal error copying credentials to home directory")
 	}
 
 	if err := e.Go(); err != nil {

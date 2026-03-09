@@ -38,7 +38,7 @@ func ParseMessage(logger *zap.SugaredLogger, msg string) ([]result.RunResult, er
 
 	var r []result.RunResult
 	if err := json.Unmarshal([]byte(msg), &r); err != nil {
-		return nil, fmt.Errorf("parsing message json: %w, msg: %s", err, msg)
+		return nil, fmt.Errorf("parsing message json: %w (message length: %d)", err, len(msg))
 	}
 
 	writeIndex := 0
