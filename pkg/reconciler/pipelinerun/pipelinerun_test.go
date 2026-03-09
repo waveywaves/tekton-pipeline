@@ -1325,7 +1325,12 @@ status:
 	prt := newPipelineRunTest(t, d)
 	defer prt.Cancel()
 
-	reconciledRun, clients := prt.reconcileRun("foo", "test-pipeline-missing-results", []string{}, false)
+	wantEvents := []string{
+		"Normal Started",
+		"Warning ResultValidationFailed",
+		"Warning Failed",
+	}
+	reconciledRun, clients := prt.reconcileRun("foo", "test-pipeline-missing-results", wantEvents, false)
 	if reconciledRun.Status.CompletionTime == nil {
 		t.Errorf("Expected a CompletionTime on invalid PipelineRun but was nil")
 	}

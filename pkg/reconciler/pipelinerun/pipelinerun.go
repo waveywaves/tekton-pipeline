@@ -928,6 +928,8 @@ func (c *Reconciler) runNextSchedulableTask(ctx context.Context, pr *v1.Pipeline
 			nextRpts = nil
 			logger.Infof("Adding the task %q to the validation failed list", rpt.ResolvedTask)
 			pipelineRunFacts.ValidationFailedTask = append(pipelineRunFacts.ValidationFailedTask, rpt)
+			recorder.Eventf(pr, corev1.EventTypeWarning, "ResultValidationFailed",
+				"Task %q failed result validation: %v", rpt.PipelineTask.Name, err)
 		}
 	}
 	// GetFinalTasks only returns final tasks when a DAG is complete
