@@ -19,4 +19,10 @@ package pipeline
 const (
 	// TektonReservedAnnotationExpr is the expression we use to filter out reserved key in annotation
 	TektonReservedAnnotationExpr = "(chains.tekton.dev)/.*"
+
+	// CreatedByAnnotation is set by the webhook during admission to record
+	// the username of the user who created the PipelineRun or TaskRun.
+	// This enables downstream tasks to access the creator's identity via
+	// the Kubernetes downward API.
+	CreatedByAnnotation = "tekton.dev/created-by"
 )

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/tektoncd/pipeline/pkg/apis/config"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	pod "github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -37,11 +38,19 @@ func (tr *TaskRun) SetDefaults(ctx context.Context) {
 	ctx = apis.WithinParent(ctx, tr.ObjectMeta)
 	tr.Spec.SetDefaults(ctx)
 
-	// Silently filtering out Tekton Reserved annotations at creation
 	if apis.IsInCreate(ctx) {
+		// Silently filtering out Tekton Reserved annotations at creation
 		tr.ObjectMeta.Annotations = kmap.Filter(tr.ObjectMeta.Annotations, func(s string) bool {
 			return filterReservedAnnotationRegexp.MatchString(s)
 		})
+
+		// Capture the creating user's identity from the admission request.
+		if userInfo := apis.GetUserInfo(ctx); userInfo != nil && userInfo.Username != "" {
+			if tr.ObjectMeta.Annotations == nil {
+				tr.ObjectMeta.Annotations = map[string]string{}
+			}
+			tr.ObjectMeta.Annotations[pipeline.CreatedByAnnotation] = userInfo.Username
+		}
 	}
 
 	// If the TaskRun doesn't have a managed-by label, apply the default

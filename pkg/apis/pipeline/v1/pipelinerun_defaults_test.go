@@ -28,6 +28,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"github.com/tektoncd/pipeline/test/diff"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -487,6 +488,88 @@ func TestPipelineRunDefaultingOnCreate(t *testing.T) {
 			if !cmp.Equal(got, tc.want, ignoreUnexportedResources) {
 				d := cmp.Diff(tc.want, got, ignoreUnexportedResources)
 				t.Errorf("SetDefaults %s", diff.PrintWantGot(d))
+			}
+		})
+	}
+}
+
+func TestPipelineRunDefaultingCreatedByAnnotation(t *testing.T) {
+	tests := []struct {
+		name     string
+		userInfo *authenticationv1.UserInfo
+		in       *v1.PipelineRun
+		wantAnno map[string]string
+	}{{
+		name: "created-by annotation is set from userInfo on create",
+		userInfo: &authenticationv1.UserInfo{
+			Username: "developer@example.com",
+		},
+		in: &v1.PipelineRun{
+			Spec: v1.PipelineRunSpec{
+				PipelineRef: &v1.PipelineRef{Name: "foo"},
+			},
+		},
+		wantAnno: map[string]string{
+			"tekton.dev/created-by": "developer@example.com",
+		},
+	}, {
+		name: "created-by annotation is set for service account user",
+		userInfo: &authenticationv1.UserInfo{
+			Username: "system:serviceaccount:tekton-pipelines:tekton-triggers-sa",
+		},
+		in: &v1.PipelineRun{
+			Spec: v1.PipelineRunSpec{
+				PipelineRef: &v1.PipelineRef{Name: "foo"},
+			},
+		},
+		wantAnno: map[string]string{
+			"tekton.dev/created-by": "system:serviceaccount:tekton-pipelines:tekton-triggers-sa",
+		},
+	}, {
+		name:     "no created-by annotation when userInfo is nil",
+		userInfo: nil,
+		in: &v1.PipelineRun{
+			Spec: v1.PipelineRunSpec{
+				PipelineRef: &v1.PipelineRef{Name: "foo"},
+			},
+		},
+		wantAnno: nil,
+	}, {
+		name: "created-by annotation preserves existing annotations",
+		userInfo: &authenticationv1.UserInfo{
+			Username: "admin",
+		},
+		in: &v1.PipelineRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{"existing": "value"},
+			},
+			Spec: v1.PipelineRunSpec{
+				PipelineRef: &v1.PipelineRef{Name: "foo"},
+			},
+		},
+		wantAnno: map[string]string{
+			"existing":             "value",
+			"tekton.dev/created-by": "admin",
+		},
+	}}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := apis.WithinCreate(cfgtesting.SetDefaults(t.Context(), t, nil))
+			if tc.userInfo != nil {
+				ctx = apis.WithUserInfo(ctx, tc.userInfo)
+			}
+			got := tc.in
+			got.SetDefaults(ctx)
+			if tc.wantAnno == nil {
+				if got.Annotations != nil && got.Annotations["tekton.dev/created-by"] != "" {
+					t.Errorf("expected no created-by annotation, got %q", got.Annotations["tekton.dev/created-by"])
+				}
+			} else {
+				for k, v := range tc.wantAnno {
+					if got.Annotations[k] != v {
+						t.Errorf("annotation %q: want %q, got %q", k, v, got.Annotations[k])
+					}
+				}
 			}
 		})
 	}

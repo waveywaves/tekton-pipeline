@@ -38,11 +38,21 @@ var (
 func (pr *PipelineRun) SetDefaults(ctx context.Context) {
 	pr.Spec.SetDefaults(ctx)
 
-	// Silently filtering out Tekton Reserved annotations at creation
 	if apis.IsInCreate(ctx) {
+		// Silently filtering out Tekton Reserved annotations at creation
 		pr.ObjectMeta.Annotations = kmap.Filter(pr.ObjectMeta.Annotations, func(s string) bool {
 			return filterReservedAnnotationRegexp.MatchString(s)
 		})
+
+		// Capture the creating user's identity from the admission request.
+		// This enables downstream tasks to access who started the PipelineRun
+		// via the downward API without depending on external tooling.
+		if userInfo := apis.GetUserInfo(ctx); userInfo != nil && userInfo.Username != "" {
+			if pr.ObjectMeta.Annotations == nil {
+				pr.ObjectMeta.Annotations = map[string]string{}
+			}
+			pr.ObjectMeta.Annotations[pipeline.CreatedByAnnotation] = userInfo.Username
+		}
 	}
 }
 
