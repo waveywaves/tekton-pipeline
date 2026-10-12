@@ -7,7 +7,10 @@ FROM $GO_BUILDER AS builder
 WORKDIR /go/src/github.com/tektoncd/pipeline
 COPY upstream .
 COPY .konflux/patches patches/
+# COPY leaves the source tree root-owned, so temporarily elevate to apply patches.
+USER 0
 RUN set -e; for f in patches/*.patch; do echo ${f}; [[ -f ${f} ]] || continue; git apply ${f}; done
+USER 1001
 COPY head HEAD
 ENV CHANGESET_REV=$CI_PIPELINE_UPSTREAM_COMMIT
 ENV GODEBUG="http2server=0"
