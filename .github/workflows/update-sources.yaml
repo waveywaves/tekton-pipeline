@@ -33,8 +33,6 @@ jobs:
         run: |
           set -x
           export BASE_IMAGE=$(grep -h "RUNTIME=" .konflux/dockerfiles/* | sed -E 's/.*RUNTIME=["'\'']?([^"'\'' ]+).*/\1/' | head -n 1)
-          # Use public registry for GitHub Actions (registry.redhat.io requires authentication)
-          export BASE_IMAGE=${BASE_IMAGE//registry.redhat.io/registry.access.redhat.com}
           docker run --rm\
             -e BASE_IMAGE=$BASE_IMAGE \
             -v ./.konflux/rpms/:/rpms -w /rpms $BASE_IMAGE  sh -c "
@@ -50,10 +48,10 @@ jobs:
               rpm-lockfile-prototype --image $BASE_IMAGE rpms.in.yaml
             "
       - name: Commit new changes
-        run: |
-
-          set -x
-
+        run: |          
+        
+          set -x          
+        
           git config user.name openshift-pipelines-bot
           git config user.email pipelines-extcomm@redhat.com
           git checkout -b actions/update/sources-release-v1.15.x
@@ -70,23 +68,23 @@ jobs:
           popd
           rm -rf upstream/.git
           git add -f upstream head .konflux
-
+          
           if [[ -z $(git status --porcelain --untracked-files=no) ]]; then
             echo "No change, exiting"
             exit 0
           fi
-
+          
           git commit -F- <<EOF
           [bot] Update release-v1.15.x from tektoncd/pipeline:release-v0.59.x to ${NEW_COMMIT}
-
+          
               $ git diff --stat ${NEW_COMMIT}..${OLD_COMMIT}
           $(cat /tmp/diff.txt | sed 's/^/    /' | head -c 55555)
-
+          
           https://github.com/tektoncd/pipeline/compare/${NEW_COMMIT}..${OLD_COMMIT}
           EOF
-
+          
           git push -f origin actions/update/sources-release-v1.15.x
-
+          
           if [ "$(gh pr list --base release-v1.15.x --head actions/update/sources-release-v1.15.x --json url --jq 'length')" = "0" ]; then
             echo "creating PR..."
             gh pr create -B release-v1.15.x -H actions/update/sources-release-v1.15.x --label=automated --label=upstream --fill
