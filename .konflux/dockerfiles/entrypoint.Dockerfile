@@ -5,12 +5,9 @@ ARG RUNTIME=registry.redhat.io/ubi8/ubi@sha256:b76f9ead999002af783d7b7036b7b57ce
 FROM $GO_BUILDER AS builder
 
 WORKDIR /go/src/github.com/tektoncd/pipeline
-COPY upstream .
-COPY .konflux/patches patches/
-# COPY leaves the source tree root-owned, so temporarily elevate to apply patches.
-USER 0
+COPY --chown=1001:0 upstream .
+COPY --chown=1001:0 .konflux/patches patches/
 RUN set -e; for f in patches/*.patch; do echo ${f}; [[ -f ${f} ]] || continue; git apply ${f}; done
-USER 1001
 COPY head HEAD
 ENV CHANGESET_REV=$CI_PIPELINE_UPSTREAM_COMMIT
 ENV GODEBUG="http2server=0"

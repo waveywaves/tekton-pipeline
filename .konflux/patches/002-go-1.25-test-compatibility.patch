@@ -1,0 +1,748 @@
+diff --git a/internal/sidecarlogresults/sidecarlogresults_test.go b/internal/sidecarlogresults/sidecarlogresults_test.go
+--- a/internal/sidecarlogresults/sidecarlogresults_test.go
++++ b/internal/sidecarlogresults/sidecarlogresults_test.go
+@@ -80,7 +80,7 @@
+ 			sort.Slice(wantResults, func(i int, j int) bool { return wantResults[i] < wantResults[j] })
+ 			sort.Slice(got.Bytes(), func(i int, j int) bool { return got.Bytes()[i] < got.Bytes()[j] })
+ 			if d := cmp.Diff(wantResults, got.Bytes()); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -143,7 +143,7 @@
+ 				t.Fatalf("Did not expect any error but got: %v", err)
+ 			}
+ 			if d := cmp.Diff(want, got.Bytes()); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -213,7 +213,7 @@
+ 				t.Fatalf("Did not expect any error but got: %v", err)
+ 			}
+ 			if d := cmp.Diff(want, got.Bytes()); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/apis/pipeline/v1/param_types_test.go b/pkg/apis/pipeline/v1/param_types_test.go
+--- a/pkg/apis/pipeline/v1/param_types_test.go
++++ b/pkg/apis/pipeline/v1/param_types_test.go
+@@ -455,7 +455,7 @@
+ 	}}
+ 	for _, tt := range tests {
+ 		if d := cmp.Diff(tt.expectedResult, v1.ArrayReference(tt.p)); d != "" {
+-			t.Errorf(diff.PrintWantGot(d))
++			t.Error(diff.PrintWantGot(d))
+ 		}
+ 	}
+ }
+@@ -502,7 +502,7 @@
+ 	}}
+ 	for _, tt := range tests {
+ 		if d := cmp.Diff(tt.want, v1.Params.ExtractNames(tt.params)); d != "" {
+-			t.Errorf(diff.PrintWantGot(d))
++			t.Error(diff.PrintWantGot(d))
+ 		}
+ 	}
+ }
+@@ -565,7 +565,7 @@
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			got := tt.ps.ReplaceVariables(tt.stringReplacements, tt.arrayReplacements, tt.objectReplacements)
+ 			if d := cmp.Diff(tt.want, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -685,10 +685,10 @@
+ 			pipelineTaskName, resultName := tc.param.ParseTaskandResultName()
+ 
+ 			if d := cmp.Diff(tc.pipelineTaskName, pipelineTaskName); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 			if d := cmp.Diff(tc.resultName, resultName); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -712,7 +712,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			got := tc.params.GetNames()
+ 			if d := cmp.Diff(tc.want, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -773,7 +773,7 @@
+ 			s, a, o := tc.params.SortByType()
+ 			got := []v1.ParamSpecs{s, a, o}
+ 			if d := cmp.Diff(tc.want, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -807,7 +807,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			got := tc.params.ValidateNoDuplicateNames()
+ 			if d := cmp.Diff(tc.expectedError.Error(), got.Error()); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/apis/pipeline/v1/result_validation_test.go b/pkg/apis/pipeline/v1/result_validation_test.go
+--- a/pkg/apis/pipeline/v1/result_validation_test.go
++++ b/pkg/apis/pipeline/v1/result_validation_test.go
+@@ -297,10 +297,10 @@
+ 				t.Errorf("Did not expect an error but got: %v", err)
+ 			}
+ 			if d := cmp.Diff(tt.wantStep, gotStep); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 			if d := cmp.Diff(tt.wantResult, gotResult); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -320,7 +320,7 @@
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			gotStep, gotResult, err := v1.ExtractStepResultName(tt.value)
+ 			if d := cmp.Diff(tt.wantErr.Error(), err.Error()); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 			if gotStep != "" {
+ 				t.Errorf("Expected an empty string but got: %v", gotStep)
+diff --git a/pkg/apis/pipeline/v1/resultref_test.go b/pkg/apis/pipeline/v1/resultref_test.go
+--- a/pkg/apis/pipeline/v1/resultref_test.go
++++ b/pkg/apis/pipeline/v1/resultref_test.go
+@@ -761,7 +761,7 @@
+ 			}
+ 			got := v1.NewResultRefs(expressions)
+ 			if d := cmp.Diff(tt.wantRef, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/apis/pipeline/v1/taskrun_types_test.go b/pkg/apis/pipeline/v1/taskrun_types_test.go
+--- a/pkg/apis/pipeline/v1/taskrun_types_test.go
++++ b/pkg/apis/pipeline/v1/taskrun_types_test.go
+@@ -367,7 +367,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.taskRun.HasTimedOut(context.Background(), testClock)
+ 			if d := cmp.Diff(tc.expectedStatus, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -441,7 +441,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.args.trd.StepNeedsDebug(tc.args.stepName)
+ 			if d := cmp.Diff(tc.want, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -478,7 +478,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.args.trd.NeedsDebug()
+ 			if d := cmp.Diff(tc.want, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/apis/pipeline/v1alpha1/run_types_test.go b/pkg/apis/pipeline/v1alpha1/run_types_test.go
+--- a/pkg/apis/pipeline/v1alpha1/run_types_test.go
++++ b/pkg/apis/pipeline/v1alpha1/run_types_test.go
+@@ -343,7 +343,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.run.GetTimeout()
+ 			if d := cmp.Diff(tc.expectedValue, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -409,7 +409,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.run.HasTimedOut(testClock)
+ 			if d := cmp.Diff(tc.expectedValue, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/apis/pipeline/v1beta1/customrun_types_test.go b/pkg/apis/pipeline/v1beta1/customrun_types_test.go
+--- a/pkg/apis/pipeline/v1beta1/customrun_types_test.go
++++ b/pkg/apis/pipeline/v1beta1/customrun_types_test.go
+@@ -376,7 +376,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.customRun.GetTimeout()
+ 			if d := cmp.Diff(tc.expectedValue, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -442,7 +442,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.customRun.HasTimedOut(testClock)
+ 			if d := cmp.Diff(tc.expectedValue, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/apis/pipeline/v1beta1/param_types_test.go b/pkg/apis/pipeline/v1beta1/param_types_test.go
+--- a/pkg/apis/pipeline/v1beta1/param_types_test.go
++++ b/pkg/apis/pipeline/v1beta1/param_types_test.go
+@@ -454,7 +454,7 @@
+ 	}}
+ 	for _, tt := range tests {
+ 		if d := cmp.Diff(tt.expectedResult, v1beta1.ArrayReference(tt.p)); d != "" {
+-			t.Errorf(diff.PrintWantGot(d))
++			t.Error(diff.PrintWantGot(d))
+ 		}
+ 	}
+ }
+@@ -485,7 +485,7 @@
+ 		}
+ 
+ 		if d := cmp.Diff(tt.expected, expected); d != "" {
+-			t.Errorf(diff.PrintWantGot(d))
++			t.Error(diff.PrintWantGot(d))
+ 		}
+ 	}
+ }
+@@ -532,7 +532,7 @@
+ 	}}
+ 	for _, tt := range tests {
+ 		if d := cmp.Diff(tt.want, v1beta1.Params.ExtractNames(tt.params)); d != "" {
+-			t.Errorf(diff.PrintWantGot(d))
++			t.Error(diff.PrintWantGot(d))
+ 		}
+ 	}
+ }
+@@ -595,7 +595,7 @@
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			got := tt.ps.ReplaceVariables(tt.stringReplacements, tt.arrayReplacements, tt.objectReplacements)
+ 			if d := cmp.Diff(tt.want, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/apis/pipeline/v1beta1/resultref_test.go b/pkg/apis/pipeline/v1beta1/resultref_test.go
+--- a/pkg/apis/pipeline/v1beta1/resultref_test.go
++++ b/pkg/apis/pipeline/v1beta1/resultref_test.go
+@@ -542,7 +542,7 @@
+ 			}
+ 			got := v1beta1.NewResultRefs(expressions)
+ 			if d := cmp.Diff(tt.wantRef, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/apis/pipeline/v1beta1/taskrun_types_test.go b/pkg/apis/pipeline/v1beta1/taskrun_types_test.go
+--- a/pkg/apis/pipeline/v1beta1/taskrun_types_test.go
++++ b/pkg/apis/pipeline/v1beta1/taskrun_types_test.go
+@@ -427,7 +427,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.taskRun.HasTimedOut(context.Background(), testClock)
+ 			if d := cmp.Diff(tc.expectedStatus, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -501,7 +501,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.args.trd.StepNeedsDebug(tc.args.stepName)
+ 			if d := cmp.Diff(tc.want, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -538,7 +538,7 @@
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			result := tc.args.trd.NeedsDebug()
+ 			if d := cmp.Diff(tc.want, result); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/pod/status_test.go b/pkg/pod/status_test.go
+--- a/pkg/pod/status_test.go
++++ b/pkg/pod/status_test.go
+@@ -2561,7 +2561,7 @@
+ 		t.Errorf("did not expect an error but got: %v", err)
+ 	}
+ 	if d := cmp.Diff(want, got); d != "" {
+-		t.Errorf(diff.PrintWantGot(d))
++		t.Error(diff.PrintWantGot(d))
+ 	}
+ }
+ 
+@@ -2576,7 +2576,7 @@
+ 	_, err := getStepResultsFromSidecarLogs(sidecarLogResults, stepName)
+ 	wantErr := fmt.Errorf("invalid string %s-%s : expected somtthing that looks like <stepName>.<resultName>", stepName, resultName)
+ 	if d := cmp.Diff(wantErr.Error(), err.Error()); d != "" {
+-		t.Errorf(diff.PrintWantGot(d))
++		t.Error(diff.PrintWantGot(d))
+ 	}
+ }
+ 
+@@ -2800,6 +2800,6 @@
+ 	}}
+ 	got := getTaskResultsFromSidecarLogs(sidecarLogResults)
+ 	if d := cmp.Diff(want, got); d != "" {
+-		t.Errorf(diff.PrintWantGot(d))
++		t.Error(diff.PrintWantGot(d))
+ 	}
+ }
+diff --git a/pkg/reconciler/events/cloudevent/cloud_event_controller_test.go b/pkg/reconciler/events/cloudevent/cloud_event_controller_test.go
+--- a/pkg/reconciler/events/cloudevent/cloud_event_controller_test.go
++++ b/pkg/reconciler/events/cloudevent/cloud_event_controller_test.go
+@@ -106,7 +106,7 @@
+ 			ceClient.CheckCloudEventsUnordered(t, tc.name, tc.wantCEvents)
+ 			recorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
+ 			if err := k8sevent.CheckEventsOrdered(t, recorder.Events, tc.name, tc.wantEvents); err != nil {
+-				t.Fatalf(err.Error())
++				t.Fatal(err.Error())
+ 			}
+ 		})
+ 	}
+@@ -223,7 +223,7 @@
+ 		recorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
+ 		cloudevent.EmitCloudEvents(ctx, object)
+ 		if err := k8sevent.CheckEventsOrdered(t, recorder.Events, tc.name, tc.wantEvents); err != nil {
+-			t.Fatalf(err.Error())
++			t.Fatal(err.Error())
+ 		}
+ 		fakeClient.CheckCloudEventsUnordered(t, tc.name, tc.wantCloudEvents)
+ 	}
+diff --git a/pkg/reconciler/events/event_test.go b/pkg/reconciler/events/event_test.go
+--- a/pkg/reconciler/events/event_test.go
++++ b/pkg/reconciler/events/event_test.go
+@@ -109,7 +109,7 @@
+ 		recorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
+ 		events.Emit(ctx, nil, after, object)
+ 		if err := k8sevent.CheckEventsOrdered(t, recorder.Events, tc.name, tc.wantEvents); err != nil {
+-			t.Fatalf(err.Error())
++			t.Fatal(err.Error())
+ 		}
+ 		fakeClient.CheckCloudEventsUnordered(t, tc.name, tc.wantCloudEvents)
+ 	}
+diff --git a/pkg/reconciler/events/k8sevent/event_test.go b/pkg/reconciler/events/k8sevent/event_test.go
+--- a/pkg/reconciler/events/k8sevent/event_test.go
++++ b/pkg/reconciler/events/k8sevent/event_test.go
+@@ -180,7 +180,7 @@
+ 		k8sevents.EmitK8sEvents(ctx, ts.before, ts.after, tr)
+ 		err := k8sevents.CheckEventsOrdered(t, recorder.Events, ts.name, ts.wantEvents)
+ 		if err != nil {
+-			t.Errorf(err.Error())
++			t.Error(err.Error())
+ 		}
+ 	}
+ }
+@@ -237,7 +237,7 @@
+ 		recorder := controller.GetEventRecorder(ctx).(*record.FakeRecorder)
+ 		k8sevents.EmitK8sEvents(ctx, nil, after, object)
+ 		if err := k8sevents.CheckEventsOrdered(t, recorder.Events, tc.name, tc.wantEvents); err != nil {
+-			t.Fatalf(err.Error())
++			t.Fatal(err.Error())
+ 		}
+ 	}
+ }
+@@ -263,7 +263,7 @@
+ 		k8sevents.EmitError(fr, ts.err, tr)
+ 		err := k8sevents.CheckEventsOrdered(t, fr.Events, ts.name, ts.wantEvents)
+ 		if err != nil {
+-			t.Errorf(err.Error())
++			t.Error(err.Error())
+ 		}
+ 	}
+ }
+diff --git a/pkg/reconciler/pipelinerun/pipelinerun_test.go b/pkg/reconciler/pipelinerun/pipelinerun_test.go
+--- a/pkg/reconciler/pipelinerun/pipelinerun_test.go
++++ b/pkg/reconciler/pipelinerun/pipelinerun_test.go
+@@ -2691,7 +2691,7 @@
+ 			prt.Test.Logf("Getting events")
+ 			// Check generated events match what's expected
+ 			if err := k8sevent.CheckEventsOrdered(prt.Test, prt.TestAssets.Recorder.Events, "test-pipeline-run-with-timeout", wantEvents); err != nil {
+-				prt.Test.Errorf(err.Error())
++				prt.Test.Error(err.Error())
+ 			}
+ 
+ 			// The PipelineRun should be timed out.
+@@ -3474,7 +3474,7 @@
+ 			}
+ 			err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, prName, wantEvents)
+ 			if err != nil {
+-				t.Errorf(err.Error())
++				t.Error(err.Error())
+ 			}
+ 
+ 			// Turn off failing reactor and retry reconciliation
+@@ -3592,7 +3592,7 @@
+ 	}
+ 	err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, prName, wantEvents)
+ 	if err != nil {
+-		t.Errorf(err.Error())
++		t.Error(err.Error())
+ 	}
+ 
+ 	// Turn off failing reactor and retry reconciliation
+@@ -6820,7 +6820,7 @@
+ 				t.Errorf("storePipelineSpec() error = %v", err)
+ 			}
+ 			if d := cmp.Diff(tc.wantPipelineRun, pr); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 
+ 			// mock second reconcile
+@@ -6828,7 +6828,7 @@
+ 				t.Errorf("storePipelineSpec() error = %v", err)
+ 			}
+ 			if d := cmp.Diff(tc.wantPipelineRun, pr); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -6852,10 +6852,10 @@
+ 		t.Errorf("storePipelineSpecAndMergeMeta error = %v", err)
+ 	}
+ 	if d := cmp.Diff(wantedlabels, pr.ObjectMeta.Labels); d != "" {
+-		t.Fatalf(diff.PrintWantGot(d))
++		t.Fatal(diff.PrintWantGot(d))
+ 	}
+ 	if d := cmp.Diff(wantedannotations, pr.ObjectMeta.Annotations); d != "" {
+-		t.Fatalf(diff.PrintWantGot(d))
++		t.Fatal(diff.PrintWantGot(d))
+ 	}
+ }
+ 
+@@ -8288,7 +8288,7 @@
+ 	// Check generated events match what's expected
+ 	if len(wantEvents) > 0 {
+ 		if err := k8sevent.CheckEventsOrdered(prt.Test, prt.TestAssets.Recorder.Events, pipelineRunName, wantEvents); err != nil {
+-			prt.Test.Errorf(err.Error())
++			prt.Test.Error(err.Error())
+ 		}
+ 	}
+ 
+diff --git a/pkg/reconciler/pipelinerun/resources/apply_test.go b/pkg/reconciler/pipelinerun/resources/apply_test.go
+--- a/pkg/reconciler/pipelinerun/resources/apply_test.go
++++ b/pkg/reconciler/pipelinerun/resources/apply_test.go
+@@ -3390,19 +3390,19 @@
+ 			}
+ 			got := resources.ApplyContexts(&orig.Spec, orig.Name, tc.pr)
+ 			if d := cmp.Diff(tc.expected, got.Tasks[0].Params[0]); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 			if d := cmp.Diff(tc.expected, got.Finally[0].Params[0]); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 			if d := cmp.Diff(tc.expected, got.Tasks[0].Matrix.Params[0]); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 			if d := cmp.Diff(tc.expectedDisplayName, got.Tasks[0].DisplayName); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 			if d := cmp.Diff(tc.expectedDisplayName, got.Finally[0].DisplayName); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -3654,7 +3654,7 @@
+ 		t.Run(tc.description, func(t *testing.T) {
+ 			got := resources.ApplyPipelineTaskContexts(&tc.pt, tc.prstatus, tc.facts)
+ 			if d := cmp.Diff(&tc.want, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -3824,7 +3824,7 @@
+ 		t.Run(tc.description, func(t *testing.T) {
+ 			received, _ := resources.ApplyTaskResultsToPipelineResults(context.Background(), tc.results, tc.taskResults, tc.runResults, nil /* skippedTasks */)
+ 			if d := cmp.Diff(tc.expected, received); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -4160,7 +4160,7 @@
+ 				t.Errorf("Got unecpected error:%v", err)
+ 			}
+ 			if d := cmp.Diff(tc.expectedResults, received); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -4382,7 +4382,7 @@
+ 			}
+ 
+ 			if d := cmp.Diff(tc.expectedResults, received); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/reconciler/pipelinerun/resources/pipelinerunresolution_test.go b/pkg/reconciler/pipelinerun/resources/pipelinerunresolution_test.go
+--- a/pkg/reconciler/pipelinerun/resources/pipelinerunresolution_test.go
++++ b/pkg/reconciler/pipelinerun/resources/pipelinerunresolution_test.go
+@@ -2548,7 +2548,7 @@
+ 	for _, pt := range pts {
+ 		rt, _ := ResolvePipelineTask(context.Background(), pr, getTask, getTaskRun, nopGetCustomRun, pt, nil)
+ 		if d := cmp.Diff(verificationResult, rt.ResolvedTask.VerificationResult, cmpopts.EquateErrors()); d != "" {
+-			t.Errorf(diff.PrintWantGot(d))
++			t.Error(diff.PrintWantGot(d))
+ 		}
+ 	}
+ }
+diff --git a/pkg/reconciler/taskrun/resources/apply_test.go b/pkg/reconciler/taskrun/resources/apply_test.go
+--- a/pkg/reconciler/taskrun/resources/apply_test.go
++++ b/pkg/reconciler/taskrun/resources/apply_test.go
+@@ -1479,7 +1479,7 @@
+ 		t.Run(tc.description, func(t *testing.T) {
+ 			got := resources.ApplyContexts(&tc.spec, tc.taskName, &tc.tr)
+ 			if d := cmp.Diff(&tc.want, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -1630,7 +1630,7 @@
+ 		t.Run(tc.description, func(t *testing.T) {
+ 			got := resources.ApplyCredentialsPath(&tc.spec, tc.path)
+ 			if d := cmp.Diff(&tc.want, got); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+diff --git a/pkg/reconciler/taskrun/resources/taskspec_test.go b/pkg/reconciler/taskrun/resources/taskspec_test.go
+--- a/pkg/reconciler/taskrun/resources/taskspec_test.go
++++ b/pkg/reconciler/taskrun/resources/taskspec_test.go
+@@ -197,7 +197,7 @@
+ 	}
+ 
+ 	if d := cmp.Diff(sourceSpec, *resolvedSpec); d != "" {
+-		t.Errorf(diff.PrintWantGot(d))
++		t.Error(diff.PrintWantGot(d))
+ 	}
+ }
+ 
+@@ -293,7 +293,7 @@
+ 		t.Fatalf("Did not expect error but got: %s", err)
+ 	}
+ 	if d := cmp.Diff(verificationResult, r.VerificationResult, cmpopts.EquateErrors()); d != "" {
+-		t.Errorf(diff.PrintWantGot(d))
++		t.Error(diff.PrintWantGot(d))
+ 	}
+ }
+ 
+diff --git a/pkg/reconciler/taskrun/taskrun_test.go b/pkg/reconciler/taskrun/taskrun_test.go
+--- a/pkg/reconciler/taskrun/taskrun_test.go
++++ b/pkg/reconciler/taskrun/taskrun_test.go
+@@ -620,7 +620,7 @@
+ 
+ 	err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, "reconcile-cloud-events", wantEvents)
+ 	if !(err == nil) {
+-		t.Errorf(err.Error())
++		t.Error(err.Error())
+ 	}
+ 
+ 	wantCloudEvents := []string{
+@@ -961,7 +961,7 @@
+ 
+ 			err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, tc.name, tc.wantEvents)
+ 			if err != nil {
+-				t.Errorf(err.Error())
++				t.Error(err.Error())
+ 			}
+ 		})
+ 	}
+@@ -1115,7 +1115,7 @@
+ 
+ 			err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, tc.name, tc.wantEvents)
+ 			if err != nil {
+-				t.Errorf(err.Error())
++				t.Error(err.Error())
+ 			}
+ 		})
+ 	}
+@@ -1454,7 +1454,7 @@
+ 
+ 			err := k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, tc.name, tc.wantEvents)
+ 			if !(err == nil) {
+-				t.Errorf(err.Error())
++				t.Error(err.Error())
+ 			}
+ 
+ 			newTr, err := testAssets.Clients.Pipeline.TektonV1().TaskRuns(tc.taskRun.Namespace).Get(testAssets.Ctx, tc.taskRun.Name, metav1.GetOptions{})
+@@ -2474,7 +2474,7 @@
+ 	}
+ 	err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, "test-reconcile-pod-updateStatus", wantEvents)
+ 	if !(err == nil) {
+-		t.Errorf(err.Error())
++		t.Error(err.Error())
+ 	}
+ }
+ 
+@@ -2573,7 +2573,7 @@
+ 	}
+ 	err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, "test-reconcile-on-cancelled-taskrun", wantEvents)
+ 	if !(err == nil) {
+-		t.Errorf(err.Error())
++		t.Error(err.Error())
+ 	}
+ 
+ 	// reconcile the completed TaskRun again without the pod as that was deleted
+@@ -2646,7 +2646,7 @@
+ 	}
+ 	err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, "test-reconcile-on-timedout-taskrun", wantEvents)
+ 	if !(err == nil) {
+-		t.Errorf(err.Error())
++		t.Error(err.Error())
+ 	}
+ 
+ 	// reconcile the completed TaskRun again without the pod as that was deleted
+@@ -2879,7 +2879,7 @@
+ 				}
+ 				err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, taskRun.Name, wantEvents)
+ 				if err != nil {
+-					t.Errorf(err.Error())
++					t.Error(err.Error())
+ 				}
+ 			}
+ 		})
+@@ -3084,7 +3084,7 @@
+ 			}
+ 			err = k8sevent.CheckEventsOrdered(t, testAssets.Recorder.Events, tc.taskRun.Name, tc.wantEvents)
+ 			if !(err == nil) {
+-				t.Errorf(err.Error())
++				t.Error(err.Error())
+ 			}
+ 		})
+ 	}
+@@ -5218,7 +5218,7 @@
+ 				t.Fatal(err)
+ 			}
+ 			if d := cmp.Diff(&tc.expectedStatus, tc.taskRun.Status.GetCondition(apis.ConditionSucceeded), ignoreLastTransitionTime); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 
+ 			if tc.expectedStepStates != nil {
+@@ -5322,7 +5322,7 @@
+ 				t.Errorf("storePipelineSpec() error = %v", err)
+ 			}
+ 			if d := cmp.Diff(tc.wantTaskRun, tr); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 
+ 			// mock second reconcile
+@@ -5330,7 +5330,7 @@
+ 				t.Errorf("storePipelineSpec() error = %v", err)
+ 			}
+ 			if d := cmp.Diff(tc.wantTaskRun, tr); d != "" {
+-				t.Fatalf(diff.PrintWantGot(d))
++				t.Fatal(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
+@@ -5355,10 +5355,10 @@
+ 		t.Errorf("storeTaskSpecAndMergeMeta error = %v", err)
+ 	}
+ 	if d := cmp.Diff(wantedlabels, tr.ObjectMeta.Labels); d != "" {
+-		t.Fatalf(diff.PrintWantGot(d))
++		t.Fatal(diff.PrintWantGot(d))
+ 	}
+ 	if d := cmp.Diff(wantedannotations, tr.ObjectMeta.Annotations); d != "" {
+-		t.Fatalf(diff.PrintWantGot(d))
++		t.Fatal(diff.PrintWantGot(d))
+ 	}
+ }
+ 
+diff --git a/pkg/resolution/resolver/http/resolver_test.go b/pkg/resolution/resolver/http/resolver_test.go
+--- a/pkg/resolution/resolver/http/resolver_test.go
++++ b/pkg/resolution/resolver/http/resolver_test.go
+@@ -181,7 +181,7 @@
+ 				if tc.expectedStatus != 0 {
+ 					w.WriteHeader(tc.expectedStatus)
+ 				}
+-				fmt.Fprintf(w, tc.input)
++				fmt.Fprint(w, tc.input)
+ 			}))
+ 			params := []pipelinev1.Param{}
+ 			if tc.paramSet {
+@@ -396,7 +396,7 @@
+ 			resolver := &Resolver{}
+ 			ctx, _ := ttesting.SetupFakeContext(t)
+ 			svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+-				fmt.Fprintf(w, tt.taskContent)
++				fmt.Fprint(w, tt.taskContent)
+ 			}))
+ 			p := tt.params
+ 			if p == nil {
+diff --git a/pkg/resolution/resolver/hub/resolver_test.go b/pkg/resolution/resolver/hub/resolver_test.go
+--- a/pkg/resolution/resolver/hub/resolver_test.go
++++ b/pkg/resolution/resolver/hub/resolver_test.go
+@@ -346,7 +346,7 @@
+ 					ret = tt.resultTask
+ 				}
+ 				output, _ := json.Marshal(ret)
+-				fmt.Fprintf(w, string(output))
++				fmt.Fprint(w, string(output))
+ 			}))
+ 
+ 			resolver := &Resolver{
+@@ -582,7 +582,7 @@
+ 	for _, tc := range testCases {
+ 		t.Run(tc.name, func(t *testing.T) {
+ 			svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+-				fmt.Fprintf(w, tc.input)
++				fmt.Fprint(w, tc.input)
+ 			}))
+ 
+ 			resolver := &Resolver{
+diff --git a/pkg/result/result_test.go b/pkg/result/result_test.go
+--- a/pkg/result/result_test.go
++++ b/pkg/result/result_test.go
+@@ -59,7 +59,7 @@
+ 				t.Errorf("Unexpected error when unmarshalling the json into RunResult")
+ 			}
+ 			if d := cmp.Diff(tc.pr, pipRes); d != "" {
+-				t.Errorf(diff.PrintWantGot(d))
++				t.Error(diff.PrintWantGot(d))
+ 			}
+ 		})
+ 	}
