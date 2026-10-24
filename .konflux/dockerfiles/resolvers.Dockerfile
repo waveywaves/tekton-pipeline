@@ -12,7 +12,7 @@ RUN cmake . && make tini
 FROM $GO_BUILDER AS builder
 
 WORKDIR /go/src/github.com/tektoncd/pipeline
-COPY upstream .
+COPY --chown=1001:0 upstream .
 COPY .konflux/patches patches/
 RUN set -e; for f in patches/*.patch; do echo ${f}; [[ -f ${f} ]] || continue; git apply ${f}; done
 COPY head HEAD
