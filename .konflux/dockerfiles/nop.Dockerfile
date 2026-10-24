@@ -28,7 +28,7 @@ COPY head ${KO_DATA_PATH}/HEAD
 
 # Copy FIPS-compliant libraries
 COPY --from=fips_builder /usr/lib64/libcrypto.so.3 /usr/lib64/
-COPY --from=fips_builder /usr/lib64/libcrypto.so.3.5.1 /usr/lib64/
+COPY --from=fips_builder /usr/lib64/libcrypto.so.3* /usr/lib64/
 COPY --from=fips_builder /usr/lib64/ossl-modules/fips.so /usr/lib64/ossl-modules/
 COPY --from=fips_builder /etc/redhat-release /etc/
 
